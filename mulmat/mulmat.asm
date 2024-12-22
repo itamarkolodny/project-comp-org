@@ -38,3 +38,4 @@ loop_i:
 
 # End program
 halt $zero, $zero, $zero, $zero, 0, 0
+hi
