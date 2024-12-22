@@ -37,5 +37,4 @@ loop_i:
     blt $t0, $imm1, $zero, loop_i, 4, 0  # if i < 4 continue loop_i
 
 # End program
-halt $zero, $zero, $zero, $zero, 0, 0
-hi
+halt
