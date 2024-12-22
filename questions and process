@@ -1,0 +1,7 @@
+what should we write in the .asm files?
+for example in the matrix multiplication, what should be inside the file?
+should we write in MIPS these files?
+
+Can we use $a0 for temporary args?
+
+Do we have 3 temp args only?
