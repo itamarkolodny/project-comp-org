@@ -218,42 +218,7 @@ void first_pass(FILE* fp, Label* labels, int* label_count) {
     }
 }
 
-void second_pass(FILE* input_fp, FILE* imem_fp, FILE* dmem_fp, Label* labels, int label_count) {
-    char line[MAX_LINE_LENGTH];
 
-    while (fgets(line, sizeof(line), fp)) {
-        char cleaned_line[MAX_LINE_LENGTH];
-        strcpy(cleaned_line, line);
-        remove_comments(cleaned_line);
-        remove_whitespace(cleaned_line);
-
-        if (strlen(cleaned_line) == 0) continue;
-
-        // Handle .word directive
-        if (strncmp(cleaned_line, ".word", 5) == 0) {
-            parse_data_directive(cleaned_line, dmem_fp);
-            continue;
-        }
-
-        // Skip labels
-        if (strchr(cleaned_line, ':')) continue;
-
-        // Parse instruction
-        Instruction inst;
-        char* token = strtok(cleaned_line, " ,");
-
-        // Parse opcode
-        // ... (implement opcode parsing)
-
-        // Parse registers and immediates
-        // ... (implement register and immediate parsing)
-
-        // Write instruction to imem file
-        fprintf(imem_fp, "%02X%01X%01X%01X%01X%03X%03X\n",
-                inst.opcode, inst.rd, inst.rs, inst.rt, inst.rm,
-                inst.imm1 & 0xFFF, inst.imm2 & 0xFFF);
-    }
-}
 
 int main(int argc, char* argv[]) {
     if (argc != 4) {
