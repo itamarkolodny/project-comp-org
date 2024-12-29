@@ -264,7 +264,7 @@ void second_pass(FILE* input_fp, FILE* imem_fp, FILE* dmem_fp, Label* labels, in
 
         // Handle .word directive
         if (strncmp(cleaned_line, ".word", 5) == 0) {
-            parse_data_directive(cleaned_line, dmem_fp); 
+            parse_data_directive(cleaned_line, dmem_fp);//UNDERSTAND
             continue;
         }
 
