@@ -39,7 +39,7 @@
 				{
 					"directoryIndex" : 0,
 					"id" : "project_comp_org::@6890427a1f51a3e7e1df",
-					"jsonFile" : "target-project_comp_org-Debug-006c4ab8b852f1f57bf3.json",
+					"jsonFile" : "target-project_comp_org-Debug-93d84437aab3bb5dc24f.json",
 					"name" : "project_comp_org",
 					"projectIndex" : 0
 				}
@@ -49,8 +49,8 @@
 	"kind" : "codemodel",
 	"paths" : 
 	{
-		"build" : "/Users/itamarkolodny/Documents/GitHub/project-comp-org/cmake-build-debug",
-		"source" : "/Users/itamarkolodny/Documents/GitHub/project-comp-org"
+		"build" : "/Users/tamarabluzer/Documents/GitHub/project-comp-org/cmake-build-debug",
+		"source" : "/Users/tamarabluzer/Documents/GitHub/project-comp-org"
 	},
 	"version" : 
 	{
