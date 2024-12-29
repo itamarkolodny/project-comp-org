@@ -5,3 +5,5 @@ should we write in MIPS these files?
 Can we use $a0 for temporary args?
 
 Do we have 3 temp args only?
+what to do with monitor.yuv (dont works on mac)?
+
