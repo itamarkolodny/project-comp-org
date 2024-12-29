@@ -9,12 +9,25 @@
 #define MAX_LABEL_LENGTH 50
 #define MAX_LINES 4096
 #define MEMORY_SIZE 4096
+#define MAX_INST 4
+#define NUM_INST 22
+#define NUM_REG 16
 
 // Structure to store labels and their addresses
 typedef struct {
     char name[MAX_LABEL_LENGTH];
     int address;
 } Label;
+
+typedef struct {
+    char name[MAX_INST];
+    int value;
+} Instruction_dict;
+
+typedef struct {
+    char name[MAX_INST];
+    int value;
+} Reg_dict;
 
 // Structure to store instruction fields
 typedef struct {
@@ -34,7 +47,10 @@ char* register_names[] = {
     "$zero", "$imm1", "$imm2", "$v0", "$a0", "$a1", "$a2", "$t0",
     "$t1", "$t2", "$s0", "$s1", "$s2", "$gp", "$sp", "$ra"
 };
-
+char* inst_names[] = {
+    "add", "sub", "$imm2", "$v0", "$a0", "$a1", "$a2", "$t0",
+    "$t1", "$t2", "$s0", "$s1", "$s2", "$gp", "$sp", "$ra"
+};
 // Function prototypes
 int get_register_number(char* reg_name);
 int parse_immediate(char* imm_str, Label* labels, int label_count);
@@ -218,7 +234,46 @@ void first_pass(FILE* fp, Label* labels, int* label_count) {
     }
 }
 
+void second_pass(FILE* input_fp, FILE* imem_fp, FILE* dmem_fp, Label* labels, int label_count) {
+    char line[MAX_LINE_LENGTH];
+    Instruction_dict inst_dict[NUM_INST];
+    Reg_dict reg_dict[NUM_REG];
+    make_inst_dict(*inst_dict);
+    make_reg_dict(*reg_dict);
+    while (fgets(line, sizeof(line), input_fp)) {
+        char cleaned_line[MAX_LINE_LENGTH];
+        strcpy(cleaned_line, line);
+        remove_comments(cleaned_line);
+        remove_whitespace(cleaned_line);
 
+        if (strlen(cleaned_line) == 0) continue;
+
+        // Handle .word directive
+        if (strncmp(cleaned_line, ".word", 5) == 0) {
+            parse_data_directive(cleaned_line, dmem_fp);
+            continue;
+        }
+
+        // Skip labels
+        if (strchr(cleaned_line, ':')) continue;
+
+        // Parse instruction
+        Instruction inst;
+        char* token = strtok(cleaned_line, " ,");
+        
+
+        // Parse opcode
+        // ... (implement opcode parsing)
+
+        // Parse registers and immediates
+        // ... (implement register and immediate parsing)
+
+        // Write instruction to imem file
+        fprintf(imem_fp, "%02X%01X%01X%01X%01X%03X%03X\n",
+                inst.opcode, inst.rd, inst.rs, inst.rt, inst.rm,
+                inst.imm1 & 0xFFF, inst.imm2 & 0xFFF);
+    }
+}
 
 int main(int argc, char* argv[]) {
     if (argc != 4) {
