@@ -12,6 +12,15 @@
 #define MAX_INST 4
 #define NUM_INST 22
 #define NUM_REG 16
+#define LONGEST_NAME 20
+#define NUM_OF_ELEM_IN_INST 7
+#define OPCODE_LENGTH 8
+#define RD_LENGTH 8
+#define RS_LENGTH 8
+#define RT_LENGTH 8
+#define RM_LENGTH 8
+#define IMM1_LENGTH 12
+#define IMM2_LENGTH 12
 
 // Structure to store labels and their addresses
 typedef struct {
@@ -19,25 +28,15 @@ typedef struct {
     int address;
 } Label;
 
-typedef struct {
-    char name[MAX_INST];
-    int value;
-} Instruction_dict;
-
-typedef struct {
-    char name[MAX_INST];
-    int value;
-} Reg_dict;
-
 // Structure to store instruction fields
 typedef struct {
-    int opcode;
-    int rd;
-    int rs;
-    int rt;
-    int rm;
-    int imm1;
-    int imm2;
+    char opcode[8];
+    char rd[4];
+    char rs[4];
+    char rt[4];
+    char rm[4];
+    char imm1[12];
+    char imm2[12];
 } Instruction;
 
 // Global variables
@@ -47,9 +46,9 @@ char* register_names[] = {
     "$zero", "$imm1", "$imm2", "$v0", "$a0", "$a1", "$a2", "$t0",
     "$t1", "$t2", "$s0", "$s1", "$s2", "$gp", "$sp", "$ra"
 };
-char* inst_names[] = {
-    "add", "sub", "$imm2", "$v0", "$a0", "$a1", "$a2", "$t0",
-    "$t1", "$t2", "$s0", "$s1", "$s2", "$gp", "$sp", "$ra"
+char* opcode_names[] = {"add", "sub", "mac", "and", "or", "xor",
+    "sll", "sra", "srl", "beq", "bne", "blt", "bgt", "ble", "bge",
+    "jal", "lw", "sw", "reti", "in", "out", "halt"
 };
 // Function prototypes
 int get_register_number(char* reg_name);
@@ -61,6 +60,17 @@ void remove_whitespace(char* str);
 void remove_comments(char* line);
 int parse_data_directive(char* line, FILE* dmem_fp);
 int countInstructions(FILE* fp);
+void decimalToBinary(int numBits, int decimal, char* binary);
+int get_opcode_number(char* opcode_name);
+
+void decimalToBinary(int numBits, int decimal, char* binary) {
+    // Allocate space for binary string (numBits + null terminator)
+    for(int i = numBits - 1; i >= 0; i--) {
+        binary[i] = (decimal & 1) + '0';
+        decimal = decimal >> 1;
+    }
+    binary[numBits] = '\0';
+}
 
 // Function to count valid instructions in the assembly file
 int countInstructions(FILE* fp) {
@@ -144,6 +154,14 @@ int is_number(char* str) {
 int get_register_number(char* reg_name) {
     for (int i = 0; i < 16; i++) {
         if (strcmp(reg_name, register_names[i]) == 0) {
+            return i;
+        }
+    }
+    return -1;  // Register not found
+}
+int get_opcode_number(char* opcode_name) {
+    for (int i = 0; i < 16; i++) {
+        if (strcmp(opcode_name, opcode_names[i]) == 0) {
             return i;
         }
     }
@@ -236,10 +254,6 @@ void first_pass(FILE* fp, Label* labels, int* label_count) {
 
 void second_pass(FILE* input_fp, FILE* imem_fp, FILE* dmem_fp, Label* labels, int label_count) {
     char line[MAX_LINE_LENGTH];
-    Instruction_dict inst_dict[NUM_INST];
-    Reg_dict reg_dict[NUM_REG];
-    make_inst_dict(*inst_dict);
-    make_reg_dict(*reg_dict);
     while (fgets(line, sizeof(line), input_fp)) {
         char cleaned_line[MAX_LINE_LENGTH];
         strcpy(cleaned_line, line);
@@ -250,7 +264,7 @@ void second_pass(FILE* input_fp, FILE* imem_fp, FILE* dmem_fp, Label* labels, in
 
         // Handle .word directive
         if (strncmp(cleaned_line, ".word", 5) == 0) {
-            parse_data_directive(cleaned_line, dmem_fp);
+            parse_data_directive(cleaned_line, dmem_fp); 
             continue;
         }
 
@@ -260,18 +274,54 @@ void second_pass(FILE* input_fp, FILE* imem_fp, FILE* dmem_fp, Label* labels, in
         // Parse instruction
         Instruction inst;
         char* token = strtok(cleaned_line, " ,");
-        
+        char arr[NUM_OF_ELEM_IN_INST][LONGEST_NAME];
+        int arr_index = 0;
+        while (arr_index < NUM_OF_ELEM_IN_INST && token!=NULL) {
+            strcpy(arr[arr_index], token);
+            token = strtok(NULL, " ,");
+            arr_index++;
+        }
 
         // Parse opcode
-        // ... (implement opcode parsing)
+        char binary_opcode[OPCODE_LENGTH];
+        decimalToBinary(OPCODE_LENGTH, get_opcode_number(arr[0]), binary_opcode);
+        strcpy(inst.opcode, binary_opcode);
 
         // Parse registers and immediates
-        // ... (implement register and immediate parsing)
+        // Parse register $rd
+        char binary_rd[RD_LENGTH];
+        decimalToBinary(RD_LENGTH, get_opcode_number(arr[1]), binary_rd);
+        strcpy(inst.rd, binary_rd);
+
+        // Parse register $rs
+        char binary_rs[RS_LENGTH];
+        decimalToBinary(RS_LENGTH, get_opcode_number(arr[2]), binary_rs);
+        strcpy(inst.rs, binary_rs);
+
+        // Parse register $rt
+        char binary_rt[RT_LENGTH];
+        decimalToBinary(RT_LENGTH, get_opcode_number(arr[3]), binary_rt);
+        strcpy(inst.rt, binary_rt);
+
+        // Parse register $rm
+        char binary_rm[RM_LENGTH];
+        decimalToBinary(RM_LENGTH, get_opcode_number(arr[4]), binary_rm);
+        strcpy(inst.rm, binary_rm);
+
+        // Parse register immediate1
+        char binary_imm1[IMM1_LENGTH];
+        decimalToBinary(IMM1_LENGTH, parse_immediate(arr[5], labels, label_count), binary_imm1);
+        strcpy(inst.imm1, binary_imm1);
+
+        // Parse register immediate2
+        char binary_imm2[IMM1_LENGTH];
+        decimalToBinary(IMM1_LENGTH, parse_immediate(arr[6], labels, label_count), binary_imm2);
+        strcpy(inst.imm2, binary_imm2);
 
         // Write instruction to imem file
         fprintf(imem_fp, "%02X%01X%01X%01X%01X%03X%03X\n",
                 inst.opcode, inst.rd, inst.rs, inst.rt, inst.rm,
-                inst.imm1 & 0xFFF, inst.imm2 & 0xFFF);
+                inst.imm1 & 0xFFF, inst.imm2 & 0xFFF); //FIX
     }
 }
 
