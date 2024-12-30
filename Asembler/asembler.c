@@ -15,12 +15,13 @@
 #define LONGEST_NAME 20
 #define NUM_OF_ELEM_IN_INST 7
 #define OPCODE_LENGTH 8
-#define RD_LENGTH 8
-#define RS_LENGTH 8
-#define RT_LENGTH 8
-#define RM_LENGTH 8
+#define RD_LENGTH 4
+#define RS_LENGTH 4
+#define RT_LENGTH 4
+#define RM_LENGTH 4
 #define IMM1_LENGTH 12
 #define IMM2_LENGTH 12
+#define NUM_OF_OPCODES 22
 
 // Structure to store labels and their addresses
 typedef struct {
@@ -30,13 +31,13 @@ typedef struct {
 
 // Structure to store instruction fields
 typedef struct {
-    char opcode[8];
-    char rd[4];
-    char rs[4];
-    char rt[4];
-    char rm[4];
-    char imm1[12];
-    char imm2[12];
+    char opcode[9];
+    char rd[5];
+    char rs[5];
+    char rt[5];
+    char rm[5];
+    char imm1[13];
+    char imm2[13];
 } Instruction;
 
 // Global variables
@@ -64,12 +65,17 @@ void decimalToBinary(int numBits, int decimal, char* binary);
 int get_opcode_number(char* opcode_name);
 
 void decimalToBinary(int numBits, int decimal, char* binary) {
-    // Allocate space for binary string (numBits + null terminator)
+    // Initialize all bits to '0'
+    for(int i = 0; i < numBits; i++) {
+        binary[i] = '0';
+    }
+    binary[numBits] = '\0';  // Null terminate
+
+    // Convert decimal to binary
     for(int i = numBits - 1; i >= 0; i--) {
         binary[i] = (decimal & 1) + '0';
         decimal = decimal >> 1;
     }
-    binary[numBits] = '\0';
 }
 
 // Function to count valid instructions in the assembly file
@@ -160,7 +166,7 @@ int get_register_number(char* reg_name) {
     return -1;  // Register not found
 }
 int get_opcode_number(char* opcode_name) {
-    for (int i = 0; i < 16; i++) {
+    for (int i = 0; i < NUM_OF_OPCODES; i++) {
         if (strcmp(opcode_name, opcode_names[i]) == 0) {
             return i;
         }
@@ -274,7 +280,7 @@ void second_pass(FILE* input_fp, FILE* imem_fp, FILE* dmem_fp, Label* labels, in
         // Parse instruction
         Instruction inst;
         char* token = strtok(cleaned_line, " ,");
-<<<<<<< Updated upstream
+
         char arr[NUM_OF_ELEM_IN_INST][LONGEST_NAME];
         int arr_index = 0;
         while (arr_index < NUM_OF_ELEM_IN_INST && token!=NULL) {
@@ -282,51 +288,78 @@ void second_pass(FILE* input_fp, FILE* imem_fp, FILE* dmem_fp, Label* labels, in
             token = strtok(NULL, " ,");
             arr_index++;
         }
-=======
-        
-        
->>>>>>> Stashed changes
 
-        // Parse opcode
-        char binary_opcode[OPCODE_LENGTH];
-        decimalToBinary(OPCODE_LENGTH, get_opcode_number(arr[0]), binary_opcode);
-        strcpy(inst.opcode, binary_opcode);
+        // Get decimal values
+        int opcode_dec = get_opcode_number(arr[0]);
+        int rd_dec = get_register_number(arr[1]);
+        int rs_dec = get_register_number(arr[2]);
+        int rt_dec = get_register_number(arr[3]);
+        int rm_dec = get_register_number(arr[4]);
+        int imm1_dec = parse_immediate(arr[5], labels, label_count);
+        int imm2_dec = parse_immediate(arr[6], labels, label_count);
 
-        // Parse registers and immediates
-        // Parse register $rd
-        char binary_rd[RD_LENGTH];
-        decimalToBinary(RD_LENGTH, get_opcode_number(arr[1]), binary_rd);
-        strcpy(inst.rd, binary_rd);
+        // Convert to binary strings
+        char opcode_bin[9];
+        char rd_bin[5];
+        char rs_bin[5];
+        char rt_bin[5];
+        char rm_bin[5];
+        char imm1_bin[13];
+        char imm2_bin[13];
 
-        // Parse register $rs
-        char binary_rs[RS_LENGTH];
-        decimalToBinary(RS_LENGTH, get_opcode_number(arr[2]), binary_rs);
-        strcpy(inst.rs, binary_rs);
+        decimalToBinary(8, opcode_dec, opcode_bin);
+        decimalToBinary(4, rd_dec, rd_bin);
+        decimalToBinary(4, rs_dec, rs_bin);
+        decimalToBinary(4, rt_dec, rt_bin);
+        decimalToBinary(4, rm_dec, rm_bin);
+        decimalToBinary(12, imm1_dec, imm1_bin);
+        decimalToBinary(12, imm2_dec, imm2_bin);
 
-        // Parse register $rt
-        char binary_rt[RT_LENGTH];
-        decimalToBinary(RT_LENGTH, get_opcode_number(arr[3]), binary_rt);
-        strcpy(inst.rt, binary_rt);
+        // Write binary strings directly to file
+        fprintf(imem_fp, "%s%s%s%s%s%s%s\n",
+                opcode_bin, rd_bin, rs_bin, rt_bin, rm_bin,
+                imm1_bin, imm2_bin);
 
-        // Parse register $rm
-        char binary_rm[RM_LENGTH];
-        decimalToBinary(RM_LENGTH, get_opcode_number(arr[4]), binary_rm);
-        strcpy(inst.rm, binary_rm);
-
-        // Parse register immediate1
-        char binary_imm1[IMM1_LENGTH];
-        decimalToBinary(IMM1_LENGTH, parse_immediate(arr[5], labels, label_count), binary_imm1);
-        strcpy(inst.imm1, binary_imm1);
-
-        // Parse register immediate2
-        char binary_imm2[IMM1_LENGTH];
-        decimalToBinary(IMM1_LENGTH, parse_immediate(arr[6], labels, label_count), binary_imm2);
-        strcpy(inst.imm2, binary_imm2);
-
-        // Write instruction to imem file
-        fprintf(imem_fp, "%02X%01X%01X%01X%01X%03X%03X\n",
-                inst.opcode, inst.rd, inst.rs, inst.rt, inst.rm,
-                inst.imm1 & 0xFFF, inst.imm2 & 0xFFF); //FIX
+        // // Parse opcode
+        // char binary_opcode[OPCODE_LENGTH];
+        // decimalToBinary(OPCODE_LENGTH, get_opcode_number(arr[0]), binary_opcode);
+        // strcpy(inst.opcode, binary_opcode);
+        //
+        // // Parse registers and immediates
+        // // Parse register $rd
+        // char binary_rd[RD_LENGTH];
+        // decimalToBinary(RD_LENGTH, get_opcode_number(arr[1]), binary_rd);
+        // strcpy(inst.rd, binary_rd);
+        //
+        // // Parse register $rs
+        // char binary_rs[RS_LENGTH];
+        // decimalToBinary(RS_LENGTH, get_opcode_number(arr[2]), binary_rs);
+        // strcpy(inst.rs, binary_rs);
+        //
+        // // Parse register $rt
+        // char binary_rt[RT_LENGTH];
+        // decimalToBinary(RT_LENGTH, get_opcode_number(arr[3]), binary_rt);
+        // strcpy(inst.rt, binary_rt);
+        //
+        // // Parse register $rm
+        // char binary_rm[RM_LENGTH];
+        // decimalToBinary(RM_LENGTH, get_opcode_number(arr[4]), binary_rm);
+        // strcpy(inst.rm, binary_rm);
+        //
+        // // Parse register immediate1
+        // char binary_imm1[IMM1_LENGTH];
+        // decimalToBinary(IMM1_LENGTH, parse_immediate(arr[5], labels, label_count), binary_imm1);
+        // strcpy(inst.imm1, binary_imm1);
+        //
+        // // Parse register immediate2
+        // char binary_imm2[IMM1_LENGTH];
+        // decimalToBinary(IMM1_LENGTH, parse_immediate(arr[6], labels, label_count), binary_imm2);
+        // strcpy(inst.imm2, binary_imm2);
+        //
+        // // Write instruction to imem file
+        // fprintf(imem_fp, "%02X%01X%01X%01X%01X%03X%03X\n",
+        //         inst.opcode, inst.rd, inst.rs, inst.rt, inst.rm,
+        //         inst.imm1 & 0xFFF, inst.imm2 & 0xFFF); //FIX
     }
 }
 
