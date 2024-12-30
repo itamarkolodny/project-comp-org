@@ -274,6 +274,7 @@ void second_pass(FILE* input_fp, FILE* imem_fp, FILE* dmem_fp, Label* labels, in
         // Parse instruction
         Instruction inst;
         char* token = strtok(cleaned_line, " ,");
+<<<<<<< Updated upstream
         char arr[NUM_OF_ELEM_IN_INST][LONGEST_NAME];
         int arr_index = 0;
         while (arr_index < NUM_OF_ELEM_IN_INST && token!=NULL) {
@@ -281,6 +282,10 @@ void second_pass(FILE* input_fp, FILE* imem_fp, FILE* dmem_fp, Label* labels, in
             token = strtok(NULL, " ,");
             arr_index++;
         }
+=======
+        
+        
+>>>>>>> Stashed changes
 
         // Parse opcode
         char binary_opcode[OPCODE_LENGTH];
