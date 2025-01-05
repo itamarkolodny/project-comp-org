@@ -59,7 +59,7 @@ void second_pass(FILE* input_fp, FILE* imem_fp, FILE* dmem_fp, Label* labels, in
 int is_number(char* str);
 void remove_whitespace(char* str);
 void remove_comments(char* line);
-int parse_data_directive(char* line, FILE* dmem_fp);
+int parse_data_directive(char* line, int* memory);
 int countInstructions(FILE* fp);
 void decimalToBinary(int numBits, int decimal, char* binary);
 int get_opcode_number(char* opcode_name);
@@ -194,7 +194,7 @@ int parse_immediate(char* imm_str, Label* labels, int label_count) {
     }
 }
 
-int parse_data_directive(char* line, FILE* dmem_fp) {
+int parse_data_directive(char* line, int* memory) {
     char* token;
     int address, value;
 
@@ -211,10 +211,12 @@ int parse_data_directive(char* line, FILE* dmem_fp) {
     if (!token) return 0;
     value = parse_immediate(token, NULL, 0);
 
-    // Write to memory file
-    fprintf(dmem_fp, "%08X\n", value);
+    // Store in memory array at correct address
+    memory[address] = value;
+
     return 1;
 }
+
 
 void first_pass(FILE* fp, Label* labels, int* label_count) {
     // Get instruction count first
@@ -260,6 +262,7 @@ void first_pass(FILE* fp, Label* labels, int* label_count) {
 
 void second_pass(FILE* input_fp, FILE* imem_fp, FILE* dmem_fp, Label* labels, int label_count) {
     char line[MAX_LINE_LENGTH];
+    int memory[MEMORY_SIZE] = {0};  // Initialize all to 0
     while (fgets(line, sizeof(line), input_fp)) {
         char cleaned_line[MAX_LINE_LENGTH];
         strcpy(cleaned_line, line);
@@ -270,7 +273,7 @@ void second_pass(FILE* input_fp, FILE* imem_fp, FILE* dmem_fp, Label* labels, in
 
         // Handle .word directive
         if (strncmp(cleaned_line, ".word", 5) == 0) {
-            parse_data_directive(cleaned_line, dmem_fp);//UNDERSTAND
+            parse_data_directive(cleaned_line, memory);//UNDERSTAND
             continue;
         }
 
@@ -314,52 +317,14 @@ void second_pass(FILE* input_fp, FILE* imem_fp, FILE* dmem_fp, Label* labels, in
         decimalToBinary(RM_LENGTH, rm_dec, rm_bin);
         decimalToBinary(IMM1_LENGTH, imm1_dec, imm1_bin);
         decimalToBinary(IMM2_LENGTH, imm2_dec, imm2_bin);
-        
+
         // Write binary strings directly to file
         fprintf(imem_fp, "%s%s%s%s%s%s%s\n",
                 opcode_bin, rd_bin, rs_bin, rt_bin, rm_bin,
                 imm1_bin, imm2_bin);
-
-        // // Parse opcode
-        // char binary_opcode[OPCODE_LENGTH];
-        // decimalToBinary(OPCODE_LENGTH, get_opcode_number(arr[0]), binary_opcode);
-        // strcpy(inst.opcode, binary_opcode);
-        //
-        // // Parse registers and immediates
-        // // Parse register $rd
-        // char binary_rd[RD_LENGTH];
-        // decimalToBinary(RD_LENGTH, get_opcode_number(arr[1]), binary_rd);
-        // strcpy(inst.rd, binary_rd);
-        //
-        // // Parse register $rs
-        // char binary_rs[RS_LENGTH];
-        // decimalToBinary(RS_LENGTH, get_opcode_number(arr[2]), binary_rs);
-        // strcpy(inst.rs, binary_rs);
-        //
-        // // Parse register $rt
-        // char binary_rt[RT_LENGTH];
-        // decimalToBinary(RT_LENGTH, get_opcode_number(arr[3]), binary_rt);
-        // strcpy(inst.rt, binary_rt);
-        //
-        // // Parse register $rm
-        // char binary_rm[RM_LENGTH];
-        // decimalToBinary(RM_LENGTH, get_opcode_number(arr[4]), binary_rm);
-        // strcpy(inst.rm, binary_rm);
-        //
-        // // Parse register immediate1
-        // char binary_imm1[IMM1_LENGTH];
-        // decimalToBinary(IMM1_LENGTH, parse_immediate(arr[5], labels, label_count), binary_imm1);
-        // strcpy(inst.imm1, binary_imm1);
-        //
-        // // Parse register immediate2
-        // char binary_imm2[IMM1_LENGTH];
-        // decimalToBinary(IMM1_LENGTH, parse_immediate(arr[6], labels, label_count), binary_imm2);
-        // strcpy(inst.imm2, binary_imm2);
-        //
-        // // Write instruction to imem file
-        // fprintf(imem_fp, "%02X%01X%01X%01X%01X%03X%03X\n",
-        //         inst.opcode, inst.rd, inst.rs, inst.rt, inst.rm,
-        //         inst.imm1 & 0xFFF, inst.imm2 & 0xFFF); //FIX
+    }
+    for(int i = 0; i < MEMORY_SIZE; i++) {
+        fprintf(dmem_fp, "%08X\n", memory[i]);
     }
 }
 
