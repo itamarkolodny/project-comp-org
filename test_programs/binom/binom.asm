@@ -51,3 +51,6 @@ return:
         lw      $ra, $sp, $imm1, $zero, 0, 0          # Restore return address
         add     $sp, $sp, $imm1, $zero, 3, 0          # Deallocate stack space
         beq     $zero, $zero, $zero, $ra, 0, 0        # Return
+
+        .word 54 0x100
+        .word 100 0x1234ABCD
