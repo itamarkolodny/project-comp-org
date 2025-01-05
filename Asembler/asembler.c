@@ -43,6 +43,7 @@ typedef struct {
 // Global variables
 Label labels[MAX_LINES];
 int label_count = 0;
+int max_address_value = 0;
 char* register_names[] = {
     "zero", "imm1", "imm2", "v0", "a0", "a1", "a2", "t0",
 "t1", "t2", "s0", "s1", "s2", "gp", "sp", "ra"
@@ -78,7 +79,7 @@ int get_opcode_number(char* opcode_name);
     }
 }
 */
-void decimalToHex(int numBits, int decimal, char* hex) {
+/*void decimalToHex(int numBits, int decimal, char* hex) {
     // Each hex digit represents 4 bits
     int numHexDigits = (numBits + 3) / 4;
 
@@ -105,6 +106,7 @@ void decimalToHex(int numBits, int decimal, char* hex) {
             sprintf(hex, "%X", decimal);
     }
 }
+*/
 // Function to count valid instructions in the assembly file
 int countInstructions(FILE* fp) {
     char line[MAX_LINE_LENGTH];
@@ -221,10 +223,10 @@ int parse_immediate(char* imm_str, Label* labels, int label_count) {
     }
 }
 
-int parse_data_directive(char* line, int* memory, int** arr_address) {
+int parse_data_directive(char* line, int* memory) {
     char* token;
     int address, value;
-
+    remove_comments(line);
     // Skip .word
     token = strtok(line, " ,");
 
@@ -239,15 +241,16 @@ int parse_data_directive(char* line, int* memory, int** arr_address) {
     value = parse_immediate(token, NULL, 0);
 
     // Store in memory array at correct address
-    (*arr_address)[address] = value;
-
-    return *arr_address;
+    if (address > max_address_value) {
+        max_address_value = address;
+    }
+    memory[address] = value;
+    return 1;
 }
 
 
-int* first_pass(FILE* fp, Label* labels, int* label_count) {
+void first_pass(FILE* fp, Label* labels, int* label_count) {
     // Get instruction count first
-    int max_address_val = 0;
     int instruction_count = countInstructions(fp);
     if (instruction_count < 0) {
         // Handle error - program too large
@@ -268,13 +271,6 @@ int* first_pass(FILE* fp, Label* labels, int* label_count) {
 
         // Check for .word directive
         if (strncmp(cleaned_line, ".word", 5) == 0) {
-                int value;
-                char* token = strtok(cleaned_line, " ");
-                token = strtok(NULL, " ");
-                value = parse_immediate(token, NULL, 0);
-                if (value > max_address_val ) {
-                    max_address_val = value;
-                }
                 continue;
         }
 
@@ -297,21 +293,10 @@ int* first_pass(FILE* fp, Label* labels, int* label_count) {
         current_address++;
     }
     // create an array for .word addresses in the size of biggest address value
-    int *arr_address = (int*)malloc(max_address_val * sizeof(int));
-    int* head_address = arr_address;
-    if (arr_address == NULL) {
-        printf("Error: Memory allocation failed\n");
-        return;
-    }
-    else {
-        for (int i = 0; i < max_address_val; i++) {
-            arr_address[i] = 0;
-        }
-    }
-   return head_address;
+
 }
 
-void second_pass(FILE* input_fp, FILE* imem_fp, FILE* dmem_fp, Label* labels, int label_count, int* arr_address) {
+void second_pass(FILE* input_fp, FILE* imem_fp, FILE* dmem_fp, Label* labels, int label_count) {
     char line[MAX_LINE_LENGTH];
     int memory[MEMORY_SIZE] = {0};  // Initialize all to 0
     while (fgets(line, sizeof(line), input_fp)) {
@@ -324,7 +309,7 @@ void second_pass(FILE* input_fp, FILE* imem_fp, FILE* dmem_fp, Label* labels, in
 
         // Handle .word directive
         if (strncmp(cleaned_line, ".word", 5) == 0) {
-            parse_data_directive(cleaned_line, arr_address);//UNDERSTAND
+            parse_data_directive(line, memory);
             continue;
         }
 
@@ -361,14 +346,14 @@ void second_pass(FILE* input_fp, FILE* imem_fp, FILE* dmem_fp, Label* labels, in
         char imm1_hex[4];
         char imm2_hex[4];
 
-        decimalToHex(OPCODE_LENGTH, opcode_dec, opcode_hex);
+        /*decimalToHex(OPCODE_LENGTH, opcode_dec, opcode_hex);
         decimalToHex(RD_LENGTH, rd_dec, rd_hex);
         decimalToHex(RS_LENGTH, rs_dec, rs_hex);
         decimalToHex(RT_LENGTH, rt_dec, rt_hex);
         decimalToHex(RM_LENGTH, rm_dec, rm_hex);
         decimalToHex(IMM1_LENGTH, imm1_dec, imm1_hex);
         decimalToHex(IMM2_LENGTH, imm2_dec, imm2_hex);
-
+*/
         // Write hex strings directly to file
          fprintf(imem_fp, "%02X%01X%01X%01X%01X%03X%03X\n",
                 opcode_dec, rd_dec, rs_dec, rt_dec, rm_dec,
@@ -377,8 +362,8 @@ void second_pass(FILE* input_fp, FILE* imem_fp, FILE* dmem_fp, Label* labels, in
                  opcode_dec, rd_dec, rs_dec, rt_dec, rm_dec,
                  imm1_dec, imm2_dec);*/
     }
-    for(int i = 0; i < MEMORY_SIZE; i++) {
-        fprintf(dmem_fp, "%08X\n", arr_address[i]);
+    for(int i = 0; i <= max_address_value; i++) {
+        fprintf(dmem_fp, "%08X\n", memory[i]);
     }
 }
 
@@ -395,7 +380,7 @@ int main(int argc, char* argv[]) {
     }
 
     // First pass - collect all labels
-    int *head = first_pass(input_fp, labels, &label_count);
+    first_pass(input_fp, labels, &label_count);
     rewind(input_fp);
 
     // Second pass - generate code
@@ -407,7 +392,7 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
-    second_pass(input_fp, imem_fp, dmem_fp, labels, label_count, head);
+    second_pass(input_fp, imem_fp, dmem_fp, labels, label_count);
 
     fclose(input_fp);
     fclose(imem_fp);
