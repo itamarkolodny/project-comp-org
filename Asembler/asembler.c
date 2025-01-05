@@ -44,8 +44,8 @@ typedef struct {
 Label labels[MAX_LINES];
 int label_count = 0;
 char* register_names[] = {
-    "$zero", "$imm1", "$imm2", "$v0", "$a0", "$a1", "$a2", "$t0",
-    "$t1", "$t2", "$s0", "$s1", "$s2", "$gp", "$sp", "$ra"
+    "zero", "imm1", "imm2", "v0", "a0", "a1", "a2", "t0",
+"t1", "t2", "s0", "s1", "s2", "gp", "sp", "ra"
 };
 char* opcode_names[] = {"add", "sub", "mac", "and", "or", "xor",
     "sll", "sra", "srl", "beq", "bne", "blt", "bgt", "ble", "bge",
@@ -347,12 +347,12 @@ void second_pass(FILE* input_fp, FILE* imem_fp, FILE* dmem_fp, Label* labels, in
         decimalToHex(IMM2_LENGTH, imm2_dec, imm2_hex);
 
         // Write hex strings directly to file
-        // fprintf(imem_fp, "%d%d%d%d%d%d%d\n",
-        //         opcode_dec, rd_dec, rs_dec, rt_dec, rm_dec,
-        //         imm1_dec, imm2_dec);
-        printf("%d%d%d%d%d%d%d\n",
+         fprintf(imem_fp, "%02X%01X%01X%01X%01X%03X%03X\n",
+                opcode_dec, rd_dec, rs_dec, rt_dec, rm_dec,
+                imm1_dec & 0xFFF, imm2_dec & 0xFFF);
+        /*printf("%d%d%d%d%d%d%d\n",
                  opcode_dec, rd_dec, rs_dec, rt_dec, rm_dec,
-                 imm1_dec, imm2_dec);
+                 imm1_dec, imm2_dec);*/
     }
     for(int i = 0; i < MEMORY_SIZE; i++) {
         fprintf(dmem_fp, "%08X\n", memory[i]);
