@@ -221,7 +221,7 @@ int parse_immediate(char* imm_str, Label* labels, int label_count) {
     }
 }
 
-int parse_data_directive(char* line, int* memory) {
+int parse_data_directive(char* line, int* memory, int** arr_address) {
     char* token;
     int address, value;
 
@@ -239,14 +239,15 @@ int parse_data_directive(char* line, int* memory) {
     value = parse_immediate(token, NULL, 0);
 
     // Store in memory array at correct address
-    memory[address] = value;
+    (*arr_address)[address] = value;
 
-    return 1;
+    return *arr_address;
 }
 
 
-void first_pass(FILE* fp, Label* labels, int* label_count) {
+int* first_pass(FILE* fp, Label* labels, int* label_count) {
     // Get instruction count first
+    int max_address_val = 0;
     int instruction_count = countInstructions(fp);
     if (instruction_count < 0) {
         // Handle error - program too large
@@ -266,7 +267,16 @@ void first_pass(FILE* fp, Label* labels, int* label_count) {
         if (strlen(cleaned_line) == 0) continue;
 
         // Check for .word directive
-        if (strncmp(cleaned_line, ".word", 5) == 0) continue;
+        if (strncmp(cleaned_line, ".word", 5) == 0) {
+                int value;
+                char* token = strtok(cleaned_line, " ");
+                token = strtok(NULL, " ");
+                value = parse_immediate(token, NULL, 0);
+                if (value > max_address_val ) {
+                    max_address_val = value;
+                }
+                continue;
+        }
 
         // Check for label (ends with ':')
         char* colon = strchr(cleaned_line, ':');
@@ -286,9 +296,22 @@ void first_pass(FILE* fp, Label* labels, int* label_count) {
         //printf("%s\n", cleaned_line);
         current_address++;
     }
+    // create an array for .word addresses in the size of biggest address value
+    int *arr_address = (int*)malloc(max_address_val * sizeof(int));
+    int* head_address = arr_address;
+    if (arr_address == NULL) {
+        printf("Error: Memory allocation failed\n");
+        return;
+    }
+    else {
+        for (int i = 0; i < max_address_val; i++) {
+            arr_address[i] = 0;
+        }
+    }
+   return head_address;
 }
 
-void second_pass(FILE* input_fp, FILE* imem_fp, FILE* dmem_fp, Label* labels, int label_count) {
+void second_pass(FILE* input_fp, FILE* imem_fp, FILE* dmem_fp, Label* labels, int label_count, int* arr_address) {
     char line[MAX_LINE_LENGTH];
     int memory[MEMORY_SIZE] = {0};  // Initialize all to 0
     while (fgets(line, sizeof(line), input_fp)) {
@@ -301,7 +324,7 @@ void second_pass(FILE* input_fp, FILE* imem_fp, FILE* dmem_fp, Label* labels, in
 
         // Handle .word directive
         if (strncmp(cleaned_line, ".word", 5) == 0) {
-            parse_data_directive(cleaned_line, memory);//UNDERSTAND
+            parse_data_directive(cleaned_line, arr_address);//UNDERSTAND
             continue;
         }
 
@@ -355,7 +378,7 @@ void second_pass(FILE* input_fp, FILE* imem_fp, FILE* dmem_fp, Label* labels, in
                  imm1_dec, imm2_dec);*/
     }
     for(int i = 0; i < MEMORY_SIZE; i++) {
-        fprintf(dmem_fp, "%08X\n", memory[i]);
+        fprintf(dmem_fp, "%08X\n", arr_address[i]);
     }
 }
 
@@ -372,7 +395,7 @@ int main(int argc, char* argv[]) {
     }
 
     // First pass - collect all labels
-    first_pass(input_fp, labels, &label_count);
+    int *head = first_pass(input_fp, labels, &label_count);
     rewind(input_fp);
 
     // Second pass - generate code
@@ -384,7 +407,7 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
-    second_pass(input_fp, imem_fp, dmem_fp, labels, label_count);
+    second_pass(input_fp, imem_fp, dmem_fp, labels, label_count, head);
 
     fclose(input_fp);
     fclose(imem_fp);
