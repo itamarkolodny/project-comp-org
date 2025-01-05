@@ -64,7 +64,7 @@ int countInstructions(FILE* fp);
 void decimalToBinary(int numBits, int decimal, char* binary);
 int get_opcode_number(char* opcode_name);
 
-void decimalToBinary(int numBits, int decimal, char* binary) {
+/* void decimalToBinary(int numBits, int decimal, char* binary) {
     // Initialize all bits to '0'
     for(int i = 0; i < numBits; i++) {
         binary[i] = '0';
@@ -77,7 +77,34 @@ void decimalToBinary(int numBits, int decimal, char* binary) {
         decimal = decimal >> 1;
     }
 }
+*/
+void decimalToHex(int numBits, int decimal, char* hex) {
+    // Each hex digit represents 4 bits
+    int numHexDigits = (numBits + 3) / 4;
 
+    // Handle negative numbers by using the two's complement representation
+    if (decimal < 0) {
+        // Create a mask for the specified number of bits
+        unsigned int mask = (1u << numBits) - 1;
+        // Convert negative number to two's complement
+        decimal = (unsigned int)(decimal & mask);
+    }
+
+    // Format number as hex with correct padding
+    switch (numHexDigits) {
+        case 1:
+            sprintf(hex, "%01X", decimal & 0xF);
+        break;
+        case 2:
+            sprintf(hex, "%02X", decimal & 0xFF);
+        break;
+        case 3:
+            sprintf(hex, "%03X", decimal & 0xFFF);
+        break;
+        default:
+            sprintf(hex, "%X", decimal);
+    }
+}
 // Function to count valid instructions in the assembly file
 int countInstructions(FILE* fp) {
     char line[MAX_LINE_LENGTH];
@@ -256,6 +283,7 @@ void first_pass(FILE* fp, Label* labels, int* label_count) {
         }
 
         // If not a label or .word, must be an instruction
+        //printf("%s\n", cleaned_line);
         current_address++;
     }
 }
@@ -282,13 +310,13 @@ void second_pass(FILE* input_fp, FILE* imem_fp, FILE* dmem_fp, Label* labels, in
 
         // Parse instruction
         Instruction inst;
-        char* token = strtok(cleaned_line, " ,");
+        char* token = strtok(cleaned_line, " ,$");
 
         char arr[NUM_OF_ELEM_IN_INST][LONGEST_NAME];
         int arr_index = 0;
         while (arr_index < NUM_OF_ELEM_IN_INST && token!=NULL) {
             strcpy(arr[arr_index], token);
-            token = strtok(NULL, " ,");
+            token = strtok(NULL, " ,$");
             arr_index++;
         }
 
@@ -301,27 +329,30 @@ void second_pass(FILE* input_fp, FILE* imem_fp, FILE* dmem_fp, Label* labels, in
         int imm1_dec = parse_immediate(arr[5], labels, label_count);
         int imm2_dec = parse_immediate(arr[6], labels, label_count);
 
-        // Convert to binary strings
-        char opcode_bin[9];
-        char rd_bin[5];
-        char rs_bin[5];
-        char rt_bin[5];
-        char rm_bin[5];
-        char imm1_bin[13];
-        char imm2_bin[13];
+        // Convert to hex strings
+        char opcode_hex[3];
+        char rd_hex[2];
+        char rs_hex[2];
+        char rt_hex[2];
+        char rm_hex[2];
+        char imm1_hex[4];
+        char imm2_hex[4];
 
-        decimalToBinary(OPCODE_LENGTH, opcode_dec, opcode_bin);
-        decimalToBinary(RD_LENGTH, rd_dec, rd_bin);
-        decimalToBinary(RS_LENGTH, rs_dec, rs_bin);
-        decimalToBinary(RT_LENGTH, rt_dec, rt_bin);
-        decimalToBinary(RM_LENGTH, rm_dec, rm_bin);
-        decimalToBinary(IMM1_LENGTH, imm1_dec, imm1_bin);
-        decimalToBinary(IMM2_LENGTH, imm2_dec, imm2_bin);
+        decimalToHex(OPCODE_LENGTH, opcode_dec, opcode_hex);
+        decimalToHex(RD_LENGTH, rd_dec, rd_hex);
+        decimalToHex(RS_LENGTH, rs_dec, rs_hex);
+        decimalToHex(RT_LENGTH, rt_dec, rt_hex);
+        decimalToHex(RM_LENGTH, rm_dec, rm_hex);
+        decimalToHex(IMM1_LENGTH, imm1_dec, imm1_hex);
+        decimalToHex(IMM2_LENGTH, imm2_dec, imm2_hex);
 
-        // Write binary strings directly to file
-        fprintf(imem_fp, "%s%s%s%s%s%s%s\n",
-                opcode_bin, rd_bin, rs_bin, rt_bin, rm_bin,
-                imm1_bin, imm2_bin);
+        // Write hex strings directly to file
+        // fprintf(imem_fp, "%d%d%d%d%d%d%d\n",
+        //         opcode_dec, rd_dec, rs_dec, rt_dec, rm_dec,
+        //         imm1_dec, imm2_dec);
+        printf("%d%d%d%d%d%d%d\n",
+                 opcode_dec, rd_dec, rs_dec, rt_dec, rm_dec,
+                 imm1_dec, imm2_dec);
     }
     for(int i = 0; i < MEMORY_SIZE; i++) {
         fprintf(dmem_fp, "%08X\n", memory[i]);
