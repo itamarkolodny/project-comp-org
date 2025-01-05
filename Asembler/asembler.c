@@ -307,14 +307,14 @@ void second_pass(FILE* input_fp, FILE* imem_fp, FILE* dmem_fp, Label* labels, in
         char imm1_bin[13];
         char imm2_bin[13];
 
-        decimalToBinary(8, opcode_dec, opcode_bin);
-        decimalToBinary(4, rd_dec, rd_bin);
-        decimalToBinary(4, rs_dec, rs_bin);
-        decimalToBinary(4, rt_dec, rt_bin);
-        decimalToBinary(4, rm_dec, rm_bin);
-        decimalToBinary(12, imm1_dec, imm1_bin);
-        decimalToBinary(12, imm2_dec, imm2_bin);
-
+        decimalToBinary(OPCODE_LENGTH, opcode_dec, opcode_bin);
+        decimalToBinary(RD_LENGTH, rd_dec, rd_bin);
+        decimalToBinary(RS_LENGTH, rs_dec, rs_bin);
+        decimalToBinary(RT_LENGTH, rt_dec, rt_bin);
+        decimalToBinary(RM_LENGTH, rm_dec, rm_bin);
+        decimalToBinary(IMM1_LENGTH, imm1_dec, imm1_bin);
+        decimalToBinary(IMM2_LENGTH, imm2_dec, imm2_bin);
+        
         // Write binary strings directly to file
         fprintf(imem_fp, "%s%s%s%s%s%s%s\n",
                 opcode_bin, rd_bin, rs_bin, rt_bin, rm_bin,
