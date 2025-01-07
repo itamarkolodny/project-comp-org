@@ -64,4 +64,5 @@ add_executable(project_comp_org
     test_programs/mulmat/monitor.yuv
     test_programs/mulmat/mulmat.asm
     test_programs/mulmat/regout.txt
-    test_programs/mulmat/trace.txt)
+    test_programs/mulmat/trace.txt
+        Simulator/simulator.c)

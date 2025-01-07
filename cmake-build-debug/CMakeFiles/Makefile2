@@ -81,12 +81,12 @@ clean: CMakeFiles/project_comp_org.dir/clean
 CMakeFiles/project_comp_org.dir/all:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/project_comp_org.dir/build.make CMakeFiles/project_comp_org.dir/depend
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/project_comp_org.dir/build.make CMakeFiles/project_comp_org.dir/build
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/Users/tamarabluzer/Documents/GitHub/project-comp-org/cmake-build-debug/CMakeFiles --progress-num=1,2 "Built target project_comp_org"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/Users/tamarabluzer/Documents/GitHub/project-comp-org/cmake-build-debug/CMakeFiles --progress-num=1,2,3 "Built target project_comp_org"
 .PHONY : CMakeFiles/project_comp_org.dir/all
 
 # Build rule for subdir invocation for target.
 CMakeFiles/project_comp_org.dir/rule: cmake_check_build_system
-	$(CMAKE_COMMAND) -E cmake_progress_start /Users/tamarabluzer/Documents/GitHub/project-comp-org/cmake-build-debug/CMakeFiles 2
+	$(CMAKE_COMMAND) -E cmake_progress_start /Users/tamarabluzer/Documents/GitHub/project-comp-org/cmake-build-debug/CMakeFiles 3
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 CMakeFiles/project_comp_org.dir/all
 	$(CMAKE_COMMAND) -E cmake_progress_start /Users/tamarabluzer/Documents/GitHub/project-comp-org/cmake-build-debug/CMakeFiles 0
 .PHONY : CMakeFiles/project_comp_org.dir/rule

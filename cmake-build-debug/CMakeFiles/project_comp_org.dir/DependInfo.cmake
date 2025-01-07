@@ -9,6 +9,7 @@ set(CMAKE_DEPENDS_LANGUAGES
 # The set of dependency files which are needed:
 set(CMAKE_DEPENDS_DEPENDENCY_FILES
   "/Users/tamarabluzer/Documents/GitHub/project-comp-org/Asembler/asembler.c" "CMakeFiles/project_comp_org.dir/Asembler/asembler.c.o" "gcc" "CMakeFiles/project_comp_org.dir/Asembler/asembler.c.o.d"
+  "/Users/tamarabluzer/Documents/GitHub/project-comp-org/Simulator/simulator.c" "CMakeFiles/project_comp_org.dir/Simulator/simulator.c.o" "gcc" "CMakeFiles/project_comp_org.dir/Simulator/simulator.c.o.d"
   )
 
 # Targets to which this target links which contain Fortran sources.

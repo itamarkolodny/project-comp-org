@@ -153,6 +153,30 @@ Asembler/asembler.c.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/project_comp_org.dir/build.make CMakeFiles/project_comp_org.dir/Asembler/asembler.c.s
 .PHONY : Asembler/asembler.c.s
 
+Simulator/simulator.o: Simulator/simulator.c.o
+.PHONY : Simulator/simulator.o
+
+# target to build an object file
+Simulator/simulator.c.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/project_comp_org.dir/build.make CMakeFiles/project_comp_org.dir/Simulator/simulator.c.o
+.PHONY : Simulator/simulator.c.o
+
+Simulator/simulator.i: Simulator/simulator.c.i
+.PHONY : Simulator/simulator.i
+
+# target to preprocess a source file
+Simulator/simulator.c.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/project_comp_org.dir/build.make CMakeFiles/project_comp_org.dir/Simulator/simulator.c.i
+.PHONY : Simulator/simulator.c.i
+
+Simulator/simulator.s: Simulator/simulator.c.s
+.PHONY : Simulator/simulator.s
+
+# target to generate assembly for a file
+Simulator/simulator.c.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/project_comp_org.dir/build.make CMakeFiles/project_comp_org.dir/Simulator/simulator.c.s
+.PHONY : Simulator/simulator.c.s
+
 # Help Target
 help:
 	@echo "The following are some of the valid targets for this Makefile:"
@@ -165,6 +189,9 @@ help:
 	@echo "... Asembler/asembler.o"
 	@echo "... Asembler/asembler.i"
 	@echo "... Asembler/asembler.s"
+	@echo "... Simulator/simulator.o"
+	@echo "... Simulator/simulator.i"
+	@echo "... Simulator/simulator.s"
 .PHONY : help
 
 

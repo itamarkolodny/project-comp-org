@@ -1,6 +1,8 @@
 file(REMOVE_RECURSE
   "CMakeFiles/project_comp_org.dir/Asembler/asembler.c.o"
   "CMakeFiles/project_comp_org.dir/Asembler/asembler.c.o.d"
+  "CMakeFiles/project_comp_org.dir/Simulator/simulator.c.o"
+  "CMakeFiles/project_comp_org.dir/Simulator/simulator.c.o.d"
   "project_comp_org"
   "project_comp_org.pdb"
 )
