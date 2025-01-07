@@ -16,12 +16,14 @@
 #define NUM_SECTORS 128
 #define NUM_IO_REGISTERS 23
 #define MONITOR_SIZE 256
-
+#define INSTRUCTION_HEX_LENGTH 12
+#define INIT_DATA_HEX_LENGTH 8
+#define IRQ2IN_LENGTH 3
 // Structures
 typedef struct {
     uint32_t regs[NUM_REGISTERS];  // CPU registers
-    uint64_t imem[IMEM_SIZE];      // 48-bit instruction memory
-    uint32_t dmem[DMEM_SIZE];      // 32-bit data memory
+    char imem[IMEM_SIZE][INSTRUCTION_HEX_LENGTH]; //instruction memory
+    char dmem[DMEM_SIZE][INIT_DATA_HEX_LENGTH];      // 32-bit data memory
     uint32_t pc;                   // Program counter
     uint32_t io_registers[NUM_IO_REGISTERS];  // I/O registers
     uint8_t disk[NUM_SECTORS][SECTOR_SIZE];   // Disk storage
@@ -33,10 +35,10 @@ typedef struct {
 void init_cpu(CPU *cpu);
 bool load_instruction_memory(CPU *cpu, const char *filename);
 bool load_data_memory(CPU *cpu, const char *filename);
-bool load_disk(CPU *cpu, const char *filename);
+//bool load_disk(CPU *cpu, const char *filename);
 bool load_irq2(const char *filename);
 
-void fetch(CPU *cpu, uint64_t *instruction);
+char* fetch(CPU *cpu, int* pc;
 void decode(uint64_t instruction, uint8_t *opcode, uint8_t *rd, uint8_t *rs,
            uint8_t *rt, uint8_t *rm, int16_t *imm1, int16_t *imm2);
 void execute(CPU *cpu, uint8_t opcode, uint8_t rd, uint8_t rs, uint8_t rt,
@@ -65,14 +67,14 @@ int main(int argc, char *argv[]) {
     int16_t imm1, imm2;
     uint32_t cycle_count = 0;
 
-    // Initialize CPU
+    //initialize the cpu
     init_cpu(&cpu);
 
-    // Load input files
+    //load input files
     if (!load_instruction_memory(&cpu, argv[1]) ||
         !load_data_memory(&cpu, argv[2]) ||
-        !load_disk(&cpu, argv[3]) ||
-        !load_irq2(argv[4])) {
+       // !load_disk(&cpu, argv[3]) ||
+        !load_irq2(argv[4])) { //FIXME
         fprintf(stderr, "Error loading input files\n");
         return 1;
     }
@@ -83,7 +85,7 @@ int main(int argc, char *argv[]) {
         handle_interrupts(&cpu);
 
         // Fetch
-        fetch(&cpu, &instruction);
+        fetch(&cpu, );
 
         // Decode
         decode(instruction, &opcode, &rd, &rs, &rt, &rm, &imm1, &imm2);
@@ -109,22 +111,80 @@ int main(int argc, char *argv[]) {
     return 0;
 }
 
-// Function implementations will go here
 void init_cpu(CPU *cpu) {
     memset(cpu, 0, sizeof(CPU));
 }
 
 bool load_instruction_memory(CPU *cpu, const char *filename) {
-    // TODO: Implement loading instruction memory
+    char line[INSTRUCTION_HEX_LENGTH];
+    FILE *file = fopen(filename, "r");
+
+    if (file == NULL) {
+        return false;
+    }
+
+    int i = 0;
+    while (fgets(line, sizeof(line), file)) { // assuming that the file is smaller then 4096 rows
+        line[strcspn(line, "\n")] = 0;
+        strcpy(cpu->imem[i], line);
+        i ++;
+    }
+
+    while (i < IMEM_SIZE) { // setting all zeroz after the last line in imem.in
+        strcpy(cpu->imem[i], "000000000000");
+        i++;
+    }
+    fclose(file);
     return true;
 }
 
 bool load_data_memory(CPU *cpu, const char *filename) {
-    // TODO: Implement loading data memory
+    char line[INIT_DATA_HEX_LENGTH];
+    FILE *file = fopen(filename, "r");
+
+    if (file == NULL) {
+        return false;
+    }
+
+    int i = 0;
+    while (fgets(line, sizeof(line), file)) { // assuming that the file is smaller then 4096 rows
+        line[strcspn(line, "\n")] = 0;
+        strcpy(cpu->imem[i], line);
+        i ++;
+    }
+
+    while (i < DMEM_SIZE) { // setting all zeroz after the last line in dmem.in
+        strcpy(cpu->imem[i], "00000000");
+        i++;
+    }
+    fclose(file);
     return true;
 }
 
-void fetch(CPU *cpu, uint64_t *instruction) {
+bool load_irq2(const char *filename){ //FIXME
+    char line[IRQ2IN_LENGTH];
+    FILE *file = fopen (filename, "r");
+
+    if (file == NULL) {
+        return false;
+    }
+
+    int i = 0;
+    while (fgets(line, sizeof(line), file)) {
+        line[strcspn(line, "\n")] = 0;
+        strcpy(cpu->imem[i], line);
+        i ++;
+    }
+
+    while (i < DMEM_SIZE) { // setting all zeroz after the last line in dmem.in
+        strcpy(cpu->imem[i], "00000000");
+        i++;
+    }
+    fclose(file);
+    return true;
+}
+char* fetch(CPU *cpu, uint64_t *instruction) {
+    *instruction = cpu->imem[cpu->pc];
     // TODO: Implement fetch stage
 }
 
