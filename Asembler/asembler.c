@@ -30,7 +30,7 @@ typedef struct {
 } Label;
 
 // Structure to store instruction fields
-typedef struct {
+typedef struct {  // not in use?
     char opcode[9];
     char rd[5];
     char rs[5];
