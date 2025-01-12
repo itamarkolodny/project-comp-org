@@ -7,6 +7,11 @@
 #include <stdint.h>
 #include <string.h>
 #include <stdbool.h>
+// Global variables
+char* register_io_names[] =
+    {"irq0enable", "irq1enable", "irq2enable", "irq0status", "irq1status", "irq2status", "irqhandler", "irqreturn",
+    "clks", "leds", "display7seg", "timerenable", "timercurrent", "timermax", "diskcmd", "disksector", "diskbuffer",
+    "diskstatus", "reserved", "reserved", "monitoraddr", "monitordata", "monitorcmd"};
 
 // Constants
 #define IMEM_SIZE 4096
@@ -42,18 +47,20 @@ char* fetch(CPU *cpu, int* pc);
 void decode(char instruction, char *opcode, int *rd, int *rs,
            int *rt, int *rm, int *imm1, int *imm2);
 void execute(CPU *cpu, char *opcode, int *rd, int *rs, int *rt,
-            int *rm, int *imm1, int *imm2, FILE* trace_fp);
-
+            int *rm, int *imm1, int *imm2, FILE *trace_fp, uint32_t* cycle_count, FILE* cycles_fp, FILE* hw_fp);
 void handle_interrupts(CPU *cpu);
 void handle_io(CPU *cpu);
 void update_peripherals(CPU *cpu);
-void read_write_regs(rd , value);
 void update_trace(CPU *cpu, char *opcode, FILE* trace_fp);
 int parse_hex_substring(char *str, int start, int end);
-bool write_output_files(CPU *cpu, const char *dmemout, const char *regout,
+void update_leds(CPU* cpu,  uint32_t* cycle_count, FILE* leds_fp);
+const char* get_register_name(int reg_io_num);
+void update_hwregs(CPU* cpu, uint32_t* cycle_count, bool write, int32_t address, FILE* hw_fp);
+/*bool write_output_files(CPU *cpu, const char *dmemout, const char *regout,
                        const char *hwregtrace, const char *cycles,
                        const char *leds, const char *display7seg, const char *diskout,
-                       const char *monitor_txt, const char *monitor_yuv);
+                      const char *monitor_txt, const char *monitor_yuv);
+*/
 
 int main(int argc, char *argv[]) {
     if (argc != 15) {
@@ -81,30 +88,38 @@ int main(int argc, char *argv[]) {
         fprintf(stderr, "Error loading input files\n");
         return 1;
     }
+    FILE* leds_fp = fopen(argv[10], "w");
+    FILE* trace_fp = fopen(argv[7], "w");
+    FILE* hw_fp = fopen(argv[8], "w");
 
-    // Main execution loop
+    //main execution loop
     while (!cpu.halt) {
         // Handle interrupts
         handle_interrupts(&cpu);
 
-        // Fetch
+        //fetch
         fetch(&cpu, instruction);
 
-        // Decode
+        //decode
         decode(instruction, &opcode, &rd, &rs, &rt, &rm, &imm1, &imm2);
 
-        // Execute
-        FILE* trace_fp = fopen(argv[7], "w");
-        execute(&cpu, opcode, rd, rs, rt, rm, imm1, imm2 ,trace_fp);
-        fclose(trace_fp);
+        //execute & update trace.txt
+        execute(&cpu, opcode, rd, rs, rt, rm, imm1, imm2 ,trace_fp, &cycle_count, leds_fp, hw_fp);
 
         // Handle I/O and update peripherals
         handle_io(&cpu);
         update_peripherals(&cpu);
 
-        // Increment cycle count
+        //increment cycle count
         cycle_count++;
+        cpu.io_registers[8]++;
+        if (cpu.io_registers[8] == 0xFFFFFFFF) {
+            cpu.io_registers[8] = 0;
+        }
     }
+    fclose(trace_fp);
+    fclose(leds_fp);
+    fclose(hw_fp);
 
     // Write output files
 
@@ -122,12 +137,18 @@ int main(int argc, char *argv[]) {
     }
     fclose(dmem_fp);
 
-    if (!write_output_files(&cpu, argv[5], argv[6], argv[7], argv[8], argv[9],
+     //write cycles.txt
+    FILE* cycles_fp = fopen(argv[9], "w");
+    fprintf(cycles_fp, "%d\n", cycle_count);
+    fclose(cycles_fp);
+
+
+    /*if (!write_output_files(&cpu, argv[5], argv[6], argv[7], argv[8], argv[9],
                            argv[10], argv[11], argv[12], argv[13], argv[14])) {
         fprintf(stderr, "Error writing output files\n");
         return 1;
     }
-
+*/
     return 0;
 }
 
@@ -181,7 +202,7 @@ bool load_data_memory(CPU *cpu, const char *filename) {
     return true;
 }
 
-bool load_irq2(const char *filename){ //FIXME
+/*bool load_irq2(const char *filename){ //FIXME
     char line[IRQ2IN_LENGTH];
     FILE *file = fopen (filename, "r");
 
@@ -202,7 +223,8 @@ bool load_irq2(const char *filename){ //FIXME
     }
     fclose(file);
     return true;
-}
+}*/
+
 char* fetch(CPU *cpu, char *instruction) {
     *instruction = cpu->imem[cpu->pc];
 }
@@ -232,7 +254,7 @@ void decode(char instruction, char *opcode, int *rd, int *rs,
     parse_hex_substring(instruction, 6, 8, imm1);
     parse_hex_substring(instruction,9 ,11, imm2);
 }
-void read_write_regs(char *rd , value);
+
 void update_trace(CPU *cpu, char *opcode, FILE* trace_fp) {
     fprintf(trace_fp, "%03X ", cpu->pc);
     fprintf(trace_fp, "%s ", cpu->imem[cpu->pc]);
@@ -252,7 +274,7 @@ void update_trace(CPU *cpu, char *opcode, FILE* trace_fp) {
 }
 
 void execute(CPU *cpu, char *opcode, int *rd, int *rs, int *rt,
-            int *rm, int *imm1, int *imm2, FILE *trace_fp) {
+            int *rm, int *imm1, int *imm2, FILE *trace_fp, uint32_t* cycle_count, FILE* leds_fp, FILE* hw_fp) {
     update_trace(cpu, opcode, trace_fp);
     switch (opcode) {
         case "00": //ADD
@@ -362,12 +384,21 @@ void execute(CPU *cpu, char *opcode, int *rd, int *rs, int *rt,
             break;
         case 0x13: //IN
             int32_t addressi = cpu->regs[*rs] + cpu->regs[*rt];
-            cpu->regs[*rd] = cpu-> io_registers [addressi];
+            cpu->regs[*rd] = cpu->io_registers [addressi];
             cpu->pc ++;
+            update_hwregs(cpu, cycle_count, 0, addressi ,hw_fp);
             break;
         case 0x14://OUT
             int32_t x_add = cpu->regs[*rs] + cpu->regs[*rt];
+            if ((x_add == 9) && (cpu->io_registers[x_add] != cpu->regs[*rm])) {
+                cpu->io_registers[x_add] = cpu->regs[*rm];
+                update_leds(cpu, cycle_count, leds_fp);
+                update_hwregs(cpu, cycle_count, 1, x_add ,hw_fp);
+                cpu->pc ++;
+                break;
+            }
             cpu->io_registers[x_add] = cpu->regs[*rm];
+            update_hwregs(cpu, cycle_count, 1, x_add ,hw_fp);
             cpu->pc ++;
             break;
         case 0x15: //HALT
@@ -375,5 +406,17 @@ void execute(CPU *cpu, char *opcode, int *rd, int *rs, int *rt,
 
     }
 }
+void update_leds(CPU* cpu,  uint32_t* cycle_count, FILE* leds_fp) {
+    fprintf(leds_fp, "%u %08x\n", *cycle_count, cpu->io_registers[9]);
+}
 
-// Add other function implementations as needed
+void update_hwregs(CPU* cpu, uint32_t* cycle_count, bool write, int32_t address, FILE* hw_fp) {
+    const char* write_read = write ? "WRITE" : "READ";
+    const char* reg_name = get_register_name(address);
+    fprintf(hw_fp, "%u %s %s %08x\n", *cycle_count, write_read, reg_name, cpu->io_registers[address]);
+}
+
+const char* get_register_name(int reg_io_num) {
+    return register_io_names[reg_io_num];
+}
+
