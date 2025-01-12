@@ -47,7 +47,7 @@ char* fetch(CPU *cpu, int* pc);
 void decode(char instruction, char *opcode, int *rd, int *rs,
            int *rt, int *rm, int *imm1, int *imm2);
 void execute(CPU *cpu, char *opcode, int *rd, int *rs, int *rt,
-            int *rm, int *imm1, int *imm2, FILE *trace_fp, uint32_t* cycle_count, FILE* cycles_fp, FILE* hw_fp);
+            int *rm, int *imm1, int *imm2, FILE *trace_fp, uint32_t* cycle_count, FILE* cycles_fp, FILE* hw_fp, FILE* display7seg_fp);
 void handle_interrupts(CPU *cpu);
 void handle_io(CPU *cpu);
 void update_peripherals(CPU *cpu);
@@ -55,6 +55,7 @@ void update_trace(CPU *cpu, char *opcode, FILE* trace_fp);
 int parse_hex_substring(char *str, int start, int end);
 void update_leds(CPU* cpu,  uint32_t* cycle_count, FILE* leds_fp);
 const char* get_register_name(int reg_io_num);
+void update_display7seg(CPU* cpu, uint32_t* cycle_count, FILE* display7seg_fp);
 void update_hwregs(CPU* cpu, uint32_t* cycle_count, bool write, int32_t address, FILE* hw_fp);
 /*bool write_output_files(CPU *cpu, const char *dmemout, const char *regout,
                        const char *hwregtrace, const char *cycles,
@@ -91,6 +92,8 @@ int main(int argc, char *argv[]) {
     FILE* leds_fp = fopen(argv[10], "w");
     FILE* trace_fp = fopen(argv[7], "w");
     FILE* hw_fp = fopen(argv[8], "w");
+    FILE* display7seg_fp = fopen(argv[11], "w");
+    FILE* diskout_fp = fopen(argv[12], "w");
 
     //main execution loop
     while (!cpu.halt) {
@@ -104,7 +107,7 @@ int main(int argc, char *argv[]) {
         decode(instruction, &opcode, &rd, &rs, &rt, &rm, &imm1, &imm2);
 
         //execute & update trace.txt
-        execute(&cpu, opcode, rd, rs, rt, rm, imm1, imm2 ,trace_fp, &cycle_count, leds_fp, hw_fp);
+        execute(&cpu, opcode, rd, rs, rt, rm, imm1, imm2 ,trace_fp, &cycle_count, leds_fp, hw_fp, display7seg_fp);
 
         // Handle I/O and update peripherals
         handle_io(&cpu);
@@ -120,6 +123,7 @@ int main(int argc, char *argv[]) {
     fclose(trace_fp);
     fclose(leds_fp);
     fclose(hw_fp);
+    fclose(display7seg_fp);
 
     // Write output files
 
@@ -142,7 +146,31 @@ int main(int argc, char *argv[]) {
     fprintf(cycles_fp, "%d\n", cycle_count);
     fclose(cycles_fp);
 
+    // diskout output
+    fclose(diskout_fp); //FIXME
 
+    // Write monitor.txt
+    FILE *txt = fopen(argv[13], "w");
+    if (txt) {
+        for (int y = 0; y < 256; y++) {
+            for (int x = 0; x < 256; x++) {
+                fprintf(txt, "%02X\n", cpu.monitor[y][x]);
+            }
+        }
+        fclose(txt);
+    }
+
+    // Write monitor.yuv
+    FILE *yuv = fopen(argv[14], "wb");
+    if (yuv) {
+        for (int y = 0; y < 256; y++) {
+            for (int x = 0; x < 256; x++) {
+                fwrite(&cpu.monitor[y][x], sizeof(uint8_t), 1, yuv);
+            }
+        }
+        fclose(yuv);
+    }
+}
     /*if (!write_output_files(&cpu, argv[5], argv[6], argv[7], argv[8], argv[9],
                            argv[10], argv[11], argv[12], argv[13], argv[14])) {
         fprintf(stderr, "Error writing output files\n");
@@ -274,7 +302,7 @@ void update_trace(CPU *cpu, char *opcode, FILE* trace_fp) {
 }
 
 void execute(CPU *cpu, char *opcode, int *rd, int *rs, int *rt,
-            int *rm, int *imm1, int *imm2, FILE *trace_fp, uint32_t* cycle_count, FILE* leds_fp, FILE* hw_fp) {
+            int *rm, int *imm1, int *imm2, FILE *trace_fp, uint32_t* cycle_count, FILE* leds_fp, FILE* hw_fp, FILE* display7seg_fp) {
     update_trace(cpu, opcode, trace_fp);
     switch (opcode) {
         case "00": //ADD
@@ -390,9 +418,23 @@ void execute(CPU *cpu, char *opcode, int *rd, int *rs, int *rt,
             break;
         case 0x14://OUT
             int32_t x_add = cpu->regs[*rs] + cpu->regs[*rt];
-            if ((x_add == 9) && (cpu->io_registers[x_add] != cpu->regs[*rm])) {
+            if ((x_add == 9) && (cpu->io_registers[x_add] != cpu->regs[*rm])) { //update leds.txt output file
                 cpu->io_registers[x_add] = cpu->regs[*rm];
                 update_leds(cpu, cycle_count, leds_fp);
+                update_hwregs(cpu, cycle_count, 1, x_add ,hw_fp);
+                cpu->pc ++;
+                break;
+            }
+            if ((x_add == 10) && (cpu->io_registers[x_add] != cpu->regs[*rm])) { //update display7seg.txt output file
+                cpu->io_registers[x_add] = cpu->regs[*rm];
+                update_display7seg(cpu, cycle_count, display7seg_fp);
+                update_hwregs(cpu, cycle_count, 1, x_add ,hw_fp);
+                cpu->pc ++;
+                break;
+            }
+            if (x_add == 22) { //update monitor buffer
+                cpu->io_registers[x_add] = cpu->regs[*rm];
+                update_monitor_buffer(cpu);
                 update_hwregs(cpu, cycle_count, 1, x_add ,hw_fp);
                 cpu->pc ++;
                 break;
@@ -420,3 +462,17 @@ const char* get_register_name(int reg_io_num) {
     return register_io_names[reg_io_num];
 }
 
+void update_display7seg(CPU* cpu, uint32_t* cycle_count, FILE* display7seg_fp) {
+    fprintf(display7seg_fp, "%u %08x\n", *cycle_count, cpu->io_registers[10]);
+}
+
+void update_monitor_buffer(CPU* cpu) {
+    uint32_t offset = cpu->io_registers[20];
+    uint32_t data = cpu->io_registers[21];
+
+    uint32_t y = offset / 256; //line
+    uint32_t x = offset % 256; //column
+
+    //update the frame buffer
+    cpu->monitor[y][x] = data;
+}
