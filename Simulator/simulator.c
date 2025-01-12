@@ -16,7 +16,7 @@
 #define NUM_SECTORS 128
 #define NUM_IO_REGISTERS 23
 #define MONITOR_SIZE 256
-#define INSTRUCTION_HEX_LENGTH 12
+#define INSTRUCTION_HEX_LENGTH 13
 #define INIT_DATA_HEX_LENGTH 8
 #define IRQ2IN_LENGTH 3
 // Structures
@@ -65,7 +65,7 @@ int main(int argc, char *argv[]) {
 
     CPU cpu;
     char instruction[12];
-    char opcode[2];
+    char opcode[3];
     int rd, rs, rt, rm;
     char imm1[3], imm2[3];
     uint32_t cycle_count = 0;
@@ -94,6 +94,7 @@ int main(int argc, char *argv[]) {
         decode(instruction, &opcode, &rd, &rs, &rt, &rm, &imm1, &imm2);
 
         // Execute
+        FILE 
         execute(&cpu, opcode, rd, rs, rt, rm, imm1, imm2);
 
         // Handle I/O and update peripherals
@@ -152,12 +153,12 @@ bool load_data_memory(CPU *cpu, const char *filename) {
     int i = 0;
     while (fgets(line, sizeof(line), file)) { // assuming that the file is smaller then 4096 rows
         line[strcspn(line, "\n")] = 0;
-        strcpy(cpu->imem[i], line);
+        strcpy(cpu->dmem[i], line);
         i ++;
     }
 
     while (i < DMEM_SIZE) { // setting all zeroz after the last line in dmem.in
-        strcpy(cpu->imem[i], "00000000");
+        strcpy(cpu->dmem[i], "00000000\0");
         i++;
     }
     fclose(file);
@@ -216,80 +217,150 @@ void decode(char instruction, char *opcode, int *rd, int *rs,
     parse_hex_substring(instruction,9 ,11, imm2);
 }
 void read_write_regs(char *rd , value);
-void update_trace(CPU *cpu, char *opcode) {}
+void update_trace(CPU *cpu, char *opcode) {
+
+}
 void execute(CPU *cpu, char *opcode, int *rd, int *rs, int *rt,
             int *rm, int *imm1, int *imm2) {
     switch (opcode) {
         case "00": //ADD
             cpu->regs[*rd] = cpu->regs[*rs] + cpu->regs[*rt] + cpu->regs[*rm];
+            cpu->pc ++;
             update_trace(cpu, opcode);
             break;
         case "01": //SUB
             cpu->regs[*rd] = cpu->regs[*rs] - cpu->regs[*rt] - cpu->regs[*rm];
+            cpu->pc ++;
             update_trace(cpu, opcode);
             break;
         case "02": //MAC
             cpu->regs[*rd] = cpu->regs[*rs] * cpu->regs[*rt] + cpu->regs[*rm];
+            cpu->pc ++;
             update_trace(cpu, opcode);
             break;
         case "03": //AND
             cpu->regs[*rd] = cpu->regs[*rs] & cpu->regs[*rt] & cpu->regs[*rm]; // need to check if it is & or &&
+            cpu->pc ++;
             update_trace(cpu, opcode);
             break;
         case "04"://OR
             cpu->regs[*rd] = cpu->regs[*rs] | cpu->regs[*rt] | cpu->regs[*rm];
+            cpu->pc ++;
             update_trace(cpu, opcode);
             break;
         case "05"://XOR
             cpu->regs[*rd] = cpu->regs[*rs] ^ cpu->regs[*rt] ^ cpu->regs[*rm];
+            cpu->pc ++;
             update_trace(cpu, opcode);
             break;
         case "06"://SLL
             cpu->regs[*rd] = cpu->regs[*rs] << cpu->regs[*rt];
+            cpu->pc ++;
             update_trace(cpu, opcode);
             break;
         case "07"://SRA
-            cpu->regs[*rd] = cpu->regs[*rs] >> cpu->regs[*rt];//sign extention?
+            cpu->regs[*rd] = cpu->regs[*rs] >> cpu->regs[*rt];// need to check
+            cpu->pc ++;
             update_trace(cpu, opcode);
             break;
         case "08"://SRL
-            
-            if (cpu->regs[*rs] == cpu->regs[*rt]) {
-                cpu->pc = cpu->regs[*rm];
+            uint32_t value = (uint32_t) cpu->regs[*rs]; // need to check
+            cpu->regs[*rd] = (int32_t) (value >> cpu->regs[*rt]);
+            cpu->pc ++;
+            update_trace(cpu, opcode);
+            break;
+        case 0x09: //BEQ
+            if (cpu->regs[*rt] != cpu->regs[*rs]) {
+                cpu->pc ++;
             }
             else {
-                cpu->pc = cpu->regs[*rm];
+                cpu->pc = (cpu->regs[*rm] & 0xFFF);
             }
+            update_trace(cpu, opcode);
             break;
-        case 0x09:
+        case 0x0a: //BNE
+            if (cpu->regs[*rt] == cpu->regs[*rs]) {
+                cpu->pc ++;
+            }
+            else {
+                cpu->pc = (cpu->regs[*rm] & 0xFFF);
+            }
+            update_trace(cpu, opcode);
             break;
-        case 0x0a:
+        case 0x0b: //BLT
+            if (cpu->regs[*rs] >= cpu->regs[*rt]) {
+                cpu->pc ++;
+            }
+            else {
+                cpu->pc = (cpu->regs[*rm] & 0xFFF);
+            }
+            update_trace(cpu, opcode);
             break;
-        case 0x0b:
+        case 0x0c: //BGT
+            if (cpu->regs[*rs] <= cpu->regs[*rt]) {
+                cpu->pc ++;
+            }
+            else {
+                cpu->pc = (cpu->regs[*rm] & 0xFFF);
+            }
+            update_trace(cpu, opcode);
             break;
-        case 0x0c:
+        case 0x0d://BLE
+            if (cpu->regs[*rs] > cpu->regs[*rt]) {
+                cpu->pc ++;
+            }
+            else {
+                cpu->pc = (cpu->regs[*rm] & 0xFFF);
+            }
+            update_trace(cpu, opcode);
             break;
-        case 0x0d:
+        case 0x0e: //BGE
+            if (cpu->regs[*rs] < cpu->regs[*rt]) {
+                cpu->pc ++;
+            }
+            else {
+                cpu->pc = (cpu->regs[*rm] & 0xFFF);
+            }
+            update_trace(cpu, opcode);
             break;
-        case 0x0e:
+        case 0x0f://JAL
+            cpu->regs[*rd] = (cpu->pc) + 1 ;
+            cpu->pc = (cpu->regs[*rm] & 0xFFF);
+            update_trace(cpu, opcode);
             break;
-        case 0x0f:
+        case 0x10://LW
+            int32_t address = cpu->regs[*rs] + cpu->regs[*rt];
+            int32_t val;
+            sscanf(cpu->dmem[address], "%x", &val);
+            cpu->regs[*rd] = val + cpu->regs[*rm];
+            cpu->pc ++;
+            update_trace(cpu, opcode);
             break;
-        case 0x10:
+        case 0x11: //SW
+            int32_t addi = cpu->regs[*rs] + cpu->regs[*rt];
+            int32_t vali = cpu->regs[*rd] + cpu->regs[*rm];
+            sscanf(cpu->dmem[addi], "%x", &vali);
+            cpu->pc ++;
+            update_trace(cpu, opcode);
             break;
-        case 0x11:
+        case 0x12: //RETI
+            cpu->pc = cpu->io_registers[7];
+            update_trace(cpu, opcode);
             break;
-        case 0x12:
+        case 0x13: //IN
+            int32_t addressi = cpu->regs[*rs] + cpu->regs[*rt];
+            cpu->regs[*rd] = cpu-> io_registers [addressi];
+            cpu->pc ++;
+            update_trace(cpu, opcode);
             break;
-        case 0x13:
+        case 0x14://OUT
+            int32_t x_add = cpu->regs[*rs] + cpu->regs[*rt];
+            cpu->io_registers[x_add] = cpu->regs[*rm];
+            cpu->pc ++;
+            update_trace(cpu, opcode);
             break;
-        case 0x14:
+        case 0x15: //HALT
             break;
-        case 0x15:
-            break;
-        case 0x16:
-            break;
-
 
     }
 }
