@@ -97,7 +97,7 @@ int main(int argc, char *argv[]) {
         FILE* trace_fp = fopen(argv[7], "w");
         execute(&cpu, opcode, rd, rs, rt, rm, imm1, imm2 ,trace_fp);
         fclose(trace_fp);
-        
+
         // Handle I/O and update peripherals
         handle_io(&cpu);
         update_peripherals(&cpu);
@@ -107,6 +107,21 @@ int main(int argc, char *argv[]) {
     }
 
     // Write output files
+
+    //write dmemout.txt
+    FILE* dmem_fp = fopen(argv[5], "w");
+    for(int i = 0; i <= DMEM_SIZE; i++) {
+        fprintf(dmem_fp, "%s\n", cpu.dmem[i]);
+    }
+    fclose(dmem_fp);
+
+    //write regout.txt
+    FILE* regout_fp = fopen(argv[6], "w");
+    for(int i = 3; i <= NUM_REGISTERS; i++) {
+        fprintf(regout_fp, "%08X\n", cpu.regs[i]);
+    }
+    fclose(dmem_fp);
+
     if (!write_output_files(&cpu, argv[5], argv[6], argv[7], argv[8], argv[9],
                            argv[10], argv[11], argv[12], argv[13], argv[14])) {
         fprintf(stderr, "Error writing output files\n");
