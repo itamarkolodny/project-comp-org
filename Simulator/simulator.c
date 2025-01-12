@@ -42,13 +42,13 @@ char* fetch(CPU *cpu, int* pc);
 void decode(char instruction, char *opcode, int *rd, int *rs,
            int *rt, int *rm, int *imm1, int *imm2);
 void execute(CPU *cpu, char *opcode, int *rd, int *rs, int *rt,
-            int *rm, int *imm1, int *imm2);
+            int *rm, int *imm1, int *imm2, FILE* trace_fp);
 
 void handle_interrupts(CPU *cpu);
 void handle_io(CPU *cpu);
 void update_peripherals(CPU *cpu);
 void read_write_regs(rd , value);
-void update_trace(CPU *cpu, char *opcode)
+void update_trace(CPU *cpu, char *opcode, FILE* trace_fp);
 int parse_hex_substring(char *str, int start, int end);
 bool write_output_files(CPU *cpu, const char *dmemout, const char *regout,
                        const char *hwregtrace, const char *cycles,
@@ -94,9 +94,10 @@ int main(int argc, char *argv[]) {
         decode(instruction, &opcode, &rd, &rs, &rt, &rm, &imm1, &imm2);
 
         // Execute
-        FILE 
-        execute(&cpu, opcode, rd, rs, rt, rm, imm1, imm2);
-
+        FILE* trace_fp = fopen(argv[7], "w");
+        execute(&cpu, opcode, rd, rs, rt, rm, imm1, imm2 ,trace_fp);
+        fclose(trace_fp);
+        
         // Handle I/O and update peripherals
         handle_io(&cpu);
         update_peripherals(&cpu);
@@ -217,57 +218,64 @@ void decode(char instruction, char *opcode, int *rd, int *rs,
     parse_hex_substring(instruction,9 ,11, imm2);
 }
 void read_write_regs(char *rd , value);
-void update_trace(CPU *cpu, char *opcode) {
+void update_trace(CPU *cpu, char *opcode, FILE* trace_fp) {
+    fprintf(trace_fp, "%03X ", cpu->pc);
+    fprintf(trace_fp, "%s ", cpu->imem[cpu->pc]);
+    fprintf(trace_fp, "00000000 ");
 
+    int32_t imm1_value, imm2_value;
+    parse_hex_substring(cpu->imem[cpu->pc], 6, 8, &imm1_value);
+    parse_hex_substring(cpu->imem[cpu->pc], 9, 11, &imm2_value);
+
+    fprintf(trace_fp, "%08X ", (int32_t)imm1_value);
+    fprintf(trace_fp, "%08X ", (int32_t)imm2_value);
+
+    for(int i = 3; i < NUM_REGISTERS; i++) {
+        fprintf(trace_fp, "%08X ", cpu->regs[i]);
+    }
+    fprintf(trace_fp, "\n");
 }
+
 void execute(CPU *cpu, char *opcode, int *rd, int *rs, int *rt,
-            int *rm, int *imm1, int *imm2) {
+            int *rm, int *imm1, int *imm2, FILE *trace_fp) {
+    update_trace(cpu, opcode, trace_fp);
     switch (opcode) {
         case "00": //ADD
             cpu->regs[*rd] = cpu->regs[*rs] + cpu->regs[*rt] + cpu->regs[*rm];
             cpu->pc ++;
-            update_trace(cpu, opcode);
             break;
         case "01": //SUB
             cpu->regs[*rd] = cpu->regs[*rs] - cpu->regs[*rt] - cpu->regs[*rm];
             cpu->pc ++;
-            update_trace(cpu, opcode);
             break;
         case "02": //MAC
             cpu->regs[*rd] = cpu->regs[*rs] * cpu->regs[*rt] + cpu->regs[*rm];
             cpu->pc ++;
-            update_trace(cpu, opcode);
             break;
         case "03": //AND
             cpu->regs[*rd] = cpu->regs[*rs] & cpu->regs[*rt] & cpu->regs[*rm]; // need to check if it is & or &&
             cpu->pc ++;
-            update_trace(cpu, opcode);
             break;
         case "04"://OR
             cpu->regs[*rd] = cpu->regs[*rs] | cpu->regs[*rt] | cpu->regs[*rm];
             cpu->pc ++;
-            update_trace(cpu, opcode);
             break;
         case "05"://XOR
             cpu->regs[*rd] = cpu->regs[*rs] ^ cpu->regs[*rt] ^ cpu->regs[*rm];
             cpu->pc ++;
-            update_trace(cpu, opcode);
             break;
         case "06"://SLL
             cpu->regs[*rd] = cpu->regs[*rs] << cpu->regs[*rt];
             cpu->pc ++;
-            update_trace(cpu, opcode);
             break;
         case "07"://SRA
             cpu->regs[*rd] = cpu->regs[*rs] >> cpu->regs[*rt];// need to check
             cpu->pc ++;
-            update_trace(cpu, opcode);
             break;
         case "08"://SRL
             uint32_t value = (uint32_t) cpu->regs[*rs]; // need to check
             cpu->regs[*rd] = (int32_t) (value >> cpu->regs[*rt]);
             cpu->pc ++;
-            update_trace(cpu, opcode);
             break;
         case 0x09: //BEQ
             if (cpu->regs[*rt] != cpu->regs[*rs]) {
@@ -276,7 +284,6 @@ void execute(CPU *cpu, char *opcode, int *rd, int *rs, int *rt,
             else {
                 cpu->pc = (cpu->regs[*rm] & 0xFFF);
             }
-            update_trace(cpu, opcode);
             break;
         case 0x0a: //BNE
             if (cpu->regs[*rt] == cpu->regs[*rs]) {
@@ -285,7 +292,6 @@ void execute(CPU *cpu, char *opcode, int *rd, int *rs, int *rt,
             else {
                 cpu->pc = (cpu->regs[*rm] & 0xFFF);
             }
-            update_trace(cpu, opcode);
             break;
         case 0x0b: //BLT
             if (cpu->regs[*rs] >= cpu->regs[*rt]) {
@@ -294,7 +300,6 @@ void execute(CPU *cpu, char *opcode, int *rd, int *rs, int *rt,
             else {
                 cpu->pc = (cpu->regs[*rm] & 0xFFF);
             }
-            update_trace(cpu, opcode);
             break;
         case 0x0c: //BGT
             if (cpu->regs[*rs] <= cpu->regs[*rt]) {
@@ -303,7 +308,6 @@ void execute(CPU *cpu, char *opcode, int *rd, int *rs, int *rt,
             else {
                 cpu->pc = (cpu->regs[*rm] & 0xFFF);
             }
-            update_trace(cpu, opcode);
             break;
         case 0x0d://BLE
             if (cpu->regs[*rs] > cpu->regs[*rt]) {
@@ -312,7 +316,6 @@ void execute(CPU *cpu, char *opcode, int *rd, int *rs, int *rt,
             else {
                 cpu->pc = (cpu->regs[*rm] & 0xFFF);
             }
-            update_trace(cpu, opcode);
             break;
         case 0x0e: //BGE
             if (cpu->regs[*rs] < cpu->regs[*rt]) {
@@ -321,12 +324,10 @@ void execute(CPU *cpu, char *opcode, int *rd, int *rs, int *rt,
             else {
                 cpu->pc = (cpu->regs[*rm] & 0xFFF);
             }
-            update_trace(cpu, opcode);
             break;
         case 0x0f://JAL
             cpu->regs[*rd] = (cpu->pc) + 1 ;
             cpu->pc = (cpu->regs[*rm] & 0xFFF);
-            update_trace(cpu, opcode);
             break;
         case 0x10://LW
             int32_t address = cpu->regs[*rs] + cpu->regs[*rt];
@@ -334,30 +335,25 @@ void execute(CPU *cpu, char *opcode, int *rd, int *rs, int *rt,
             sscanf(cpu->dmem[address], "%x", &val);
             cpu->regs[*rd] = val + cpu->regs[*rm];
             cpu->pc ++;
-            update_trace(cpu, opcode);
             break;
         case 0x11: //SW
             int32_t addi = cpu->regs[*rs] + cpu->regs[*rt];
             int32_t vali = cpu->regs[*rd] + cpu->regs[*rm];
             sscanf(cpu->dmem[addi], "%x", &vali);
             cpu->pc ++;
-            update_trace(cpu, opcode);
             break;
         case 0x12: //RETI
             cpu->pc = cpu->io_registers[7];
-            update_trace(cpu, opcode);
             break;
         case 0x13: //IN
             int32_t addressi = cpu->regs[*rs] + cpu->regs[*rt];
             cpu->regs[*rd] = cpu-> io_registers [addressi];
             cpu->pc ++;
-            update_trace(cpu, opcode);
             break;
         case 0x14://OUT
             int32_t x_add = cpu->regs[*rs] + cpu->regs[*rt];
             cpu->io_registers[x_add] = cpu->regs[*rm];
             cpu->pc ++;
-            update_trace(cpu, opcode);
             break;
         case 0x15: //HALT
             break;
