@@ -1,9 +1,9 @@
-what should we write in the .asm files?
-for example in the matrix multiplication, what should be inside the file?
-should we write in MIPS these files?
+- can we use $a0 for temporary args?
+- Do we have 3 temp args only?
 
-Can we use $a0 for temporary args?
+-timer max value ? does the user need to update the value of the reg?
+- Let the assembly code clear irq status using an OUT instruction ?
 
-Do we have 3 temp args only?
-what to do with monitor.yuv (dont works on mac)?
+
+
 
