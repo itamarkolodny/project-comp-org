@@ -67,11 +67,7 @@ bool save_disk(CPU *cpu, const char *filename);
 bool load_disk(CPU *cpu, const char *filename);
 void start_disk_operation(CPU *cpu);
 
-/*bool write_output_files(CPU *cpu, const char *dmemout, const char *regout,
-                       const char *hwregtrace, const char *cycles,
-                       const char *leds, const char *display7seg, const char *diskout,
-                      const char *monitor_txt, const char *monitor_yuv);
-*/
+
 
 int main(int argc, char *argv[]) {
     if (argc != 15) {
@@ -194,12 +190,7 @@ int main(int argc, char *argv[]) {
     free(cpu.irq2_cycles);
     return 0;
 }
-    /*if (!write_output_files(&cpu, argv[5], argv[6], argv[7], argv[8], argv[9],
-                           argv[10], argv[11], argv[12], argv[13], argv[14])) {
-        fprintf(stderr, "Error writing output files\n");
-        return 1;
-    }
-*/
+
 
 
 void init_cpu(CPU *cpu) {
@@ -296,28 +287,10 @@ bool load_irq2(CPU* cpu, const char* filename) {
         if (line[0] == '\n' || line[0] == '\r' || line[0] == ' ' || line[0] == '\t') {
             continue;
         }
-
         int cycle = atoi(line);
-        if (cycle < 0) {
-            fprintf(stderr, "Error: Invalid negative cycle number in irq2 file\n");
-            free(cpu->irq2_cycles);
-            fclose(fp);
-            return false;
-        }
-
         cpu->irq2_cycles[cycle_count] = cycle;
         cycle_count++;
-
-        // Verify ascending order
-        if (cycle_count > 1 &&
-            cpu->irq2_cycles[cycle_count-1] <= cpu->irq2_cycles[cycle_count-2]) {
-            fprintf(stderr, "Error: IRQ2 cycles must be in ascending order\n");
-            free(cpu->irq2_cycles);
-            fclose(fp);
-            return false;
-            }
     }
-
     fclose(fp);
     return true;
 }
@@ -563,7 +536,7 @@ void handle_interrupts(CPU *cpu) {
 
 void update_peripherals(CPU *cpu) {
     // Start disk operation if a command is pending
-    if (cpu->io_registers[14] > 0 && cpu->io_registers[17] == 0) {
+    if (  (cpu->io_registers[14] == 1 || cpu->io_registers[14] == 2) && cpu->io_registers[17] == 0) {
         start_disk_operation(cpu);
     }
     // Update timer if enabled
@@ -592,15 +565,16 @@ void start_disk_operation(CPU *cpu) {
     uint32_t sector = cpu->io_registers[15];   // disksector
     uint32_t buffer = cpu->io_registers[16];   // diskbuffer (memory address)
 
-    // Validate parameters
-    if (sector >= NUM_SECTORS || command > 2) {
+    //DELETE
+    /*// Validate parameters
+    if (sector >= NUM_SECTORS) {
         // Invalid parameters - ignore command
         cpu->io_registers[14] = 0;  // Clear command
         return;
-    }
+    }*/
 
-    // Start operation if valid command and disk is ready
-    if (command > 0 && cpu->io_registers[17] == 0) {
+    // Start operation if disk is ready
+    if (cpu->io_registers[17] == 0) {
         cpu->io_registers[17] = 1;  // Set disk status to busy
         cpu->disk_timer = 0;         // Initialize timer
 
@@ -640,28 +614,28 @@ bool load_disk(CPU *cpu, const char *filename) {
         return false;
     }
 
-    char line[9];  // 8 hex chars + null terminator
+    char line[9];  // Should be changed to hold 8 hex chars + null terminator
     int sector = 0;
-    int byte = 0;
+    int word_index = 0;  // Track 32-bit words instead of bytes
 
     // Reset entire disk to zero first
     memset(cpu->disk, 0, sizeof(cpu->disk));
 
-    // Read disk content
     while (fgets(line, sizeof(line), file) && sector < NUM_SECTORS) {
-        uint32_t value;
-        // Trim newline
+        uint32_t word;
         line[strcspn(line, "\n")] = 0;
 
-        // Parse hex value
-        if (sscanf(line, "%x", &value) == 1) {
-            // Store byte in disk array
-            cpu->disk[sector][byte] = value & 0xFF;
-            byte++;
+        if (sscanf(line, "%x", &word) == 1) {
+            // Need to break the 32-bit word into 4 bytes
+            for (int j = 0; j < 4; j++) {
+                // Extract each byte from the 32-bit word
+                cpu->disk[sector][word_index*4 + j] = (word >> (j * 8)) & 0xFF;
+            }
+            word_index++;
 
-            // Move to next sector if sector is full
-            if (byte >= SECTOR_SIZE) {
-                byte = 0;
+            // Move to next sector after 128 words (512 bytes)
+            if (word_index >= SECTOR_SIZE/4) {  // 512/4 = 128 words per sector
+                word_index = 0;
                 sector++;
             }
         }
@@ -670,6 +644,7 @@ bool load_disk(CPU *cpu, const char *filename) {
     fclose(file);
     return true;
 }
+
 
 // Function to save disk content to file
 bool save_disk(CPU *cpu, const char *filename) {
