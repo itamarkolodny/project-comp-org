@@ -48,16 +48,17 @@ void init_cpu(CPU *cpu);
 bool load_instruction_memory(CPU *cpu, const char *filename);
 bool load_data_memory(CPU *cpu, const char *filename);
 bool load_irq2(CPU* cpu, const char* filename);
-void fetch(CPU *cpu, int* pc);
-void decode(char instruction, char *opcode, int *rd, int *rs,
+void fetch(CPU *cpu, char *instruction);
+void decode(char *instruction, char *opcode, int *rd, int *rs,
            int *rt, int *rm, int *imm1, int *imm2);
 void execute(CPU *cpu, char *opcode, int *rd, int *rs, int *rt,
-            int *rm, int *imm1, int *imm2, FILE *trace_fp, uint32_t* cycle_count, FILE* cycles_fp, FILE* hw_fp, FILE* display7seg_fp);
+            int *rm, int *imm1, int *imm2, FILE *trace_fp, uint32_t* cycle_count,
+            FILE* leds_fp, FILE* hw_fp, FILE* display7seg_fp);
 void handle_interrupts(CPU *cpu);
 void handle_io(CPU *cpu);
 void update_peripherals(CPU *cpu);
 void update_trace(CPU *cpu, char *opcode, FILE* trace_fp);
-int parse_hex_substring(char *str, int start, int end);
+int parse_hex_substring(char *str, int start, int end, int *result);
 void update_leds(CPU* cpu,  uint32_t* cycle_count, FILE* leds_fp);
 const char* get_register_name(int reg_io_num);
 void update_display7seg(CPU* cpu, uint32_t* cycle_count, FILE* display7seg_fp);
@@ -78,10 +79,10 @@ int main(int argc, char *argv[]) {
     }
 
     CPU cpu;
-    char instruction[12];
+    char instruction[INSTRUCTION_HEX_LENGTH];
     char opcode[3];
-    int rd, rs, rt, rm;
-    char imm1[3], imm2[3];
+    int rd, rs, rt, rm, imm1, imm2;
+    //char imm1[3], imm2[3];
     uint32_t cycle_count = 0;
 
     //initialize the cpu
@@ -118,10 +119,12 @@ int main(int argc, char *argv[]) {
         fetch(&cpu, instruction);
 
         //decode
-        decode(instruction, &opcode, &rd, &rs, &rt, &rm, &imm1, &imm2);
+        decode(&instruction, &opcode, &rd, &rs, &rt, &rm, &imm1, &imm2);
 
         //execute & update trace.txt
-        execute(&cpu, opcode, rd, rs, rt, rm, imm1, imm2 ,trace_fp, &cycle_count, leds_fp, hw_fp, display7seg_fp);
+        execute(&cpu, opcode, rd, rs, rt, rm, imm1, imm2 ,trace_fp, &cycle_count
+
+        , leds_fp, hw_fp, display7seg_fp);
 
         // Handle I/O and update peripherals
         //handle_io(&cpu);
@@ -304,7 +307,7 @@ int parse_hex_substring(char *str, int start, int end, int *result) {
     char c[len +1];
     strncpy(c, str+start,len);
     c[len] = '\0';
-    if (sscanf(c, "%x", &result) == 1) {
+    if (sscanf(c, "%x", result) == 1) {
         return 0;
     }
     else {
@@ -313,7 +316,7 @@ int parse_hex_substring(char *str, int start, int end, int *result) {
     }
 }
 
-void decode(char instruction, char *opcode, int *rd, int *rs,
+void decode(char *instruction, char *opcode, int *rd, int *rs,
            int *rt, int *rm, int *imm1, int *imm2) {
     strncpy(opcode, instruction, 2);
     opcode[2] = '\0';
@@ -379,16 +382,16 @@ void execute(CPU *cpu, char *opcode, int *rd, int *rs, int *rt,
             break;
         case 0x07://SRA
             cpu->regs[*rd] = cpu->regs[*rs] >> cpu->regs[*rt];// need to check
-            cpu->pc ++;
+            cpu->pc++;
             break;
         case 0x08://SRL
             uint32_t value = (uint32_t) cpu->regs[*rs]; // need to check
             cpu->regs[*rd] = (int32_t) (value >> cpu->regs[*rt]);
-            cpu->pc ++;
+            cpu->pc++;
             break;
         case 0x09: //BEQ
             if (cpu->regs[*rt] != cpu->regs[*rs]) {
-                cpu->pc ++;
+                cpu->pc++;
             }
             else {
                 cpu->pc = (cpu->regs[*rm] & 0xFFF);
@@ -396,7 +399,7 @@ void execute(CPU *cpu, char *opcode, int *rd, int *rs, int *rt,
             break;
         case 0x0a: //BNE
             if (cpu->regs[*rt] == cpu->regs[*rs]) {
-                cpu->pc ++;
+                cpu->pc++;
             }
             else {
                 cpu->pc = (cpu->regs[*rm] & 0xFFF);
