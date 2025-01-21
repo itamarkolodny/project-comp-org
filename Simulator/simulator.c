@@ -119,10 +119,10 @@ int main(int argc, char *argv[]) {
         fetch(&cpu, instruction);
 
         //decode
-        decode(&instruction, &opcode, &rd, &rs, &rt, &rm, &imm1, &imm2);
+        decode(instruction, opcode, &rd, &rs, &rt, &rm, &imm1, &imm2);
 
         //execute & update trace.txt
-        execute(&cpu, opcode, rd, rs, rt, rm, imm1, imm2 ,trace_fp, &cycle_count
+        execute(&cpu, opcode, &rd, &rs, &rt, &rm, &imm1, &imm2 ,trace_fp, &cycle_count
 
         , leds_fp, hw_fp, display7seg_fp);
 
@@ -384,11 +384,17 @@ void execute(CPU *cpu, char *opcode, int *rd, int *rs, int *rt,
             cpu->regs[*rd] = cpu->regs[*rs] >> cpu->regs[*rt];// need to check
             cpu->pc++;
             break;
-        case 0x08://SRL
+        /*case 0x08://SRL
             uint32_t value = (uint32_t) cpu->regs[*rs]; // need to check
             cpu->regs[*rd] = (int32_t) (value >> cpu->regs[*rt]);
             cpu->pc++;
+            break;*/
+        case 0x08: { //SRL
+            uint32_t value = (uint32_t)cpu->regs[*rs];
+            cpu->regs[*rd] = (int32_t)(value >> cpu->regs[*rt]);
+            cpu->pc++;
             break;
+        }
         case 0x09: //BEQ
             if (cpu->regs[*rt] != cpu->regs[*rs]) {
                 cpu->pc++;
@@ -446,13 +452,13 @@ void execute(CPU *cpu, char *opcode, int *rd, int *rs, int *rt,
             int32_t val;
             sscanf(cpu->dmem[address], "%x", &val);
             cpu->regs[*rd] = val + cpu->regs[*rm];
-            cpu->pc ++;
+            cpu->pc++;
             break;
         case 0x11: //SW
             int32_t addi = cpu->regs[*rs] + cpu->regs[*rt];
             int32_t vali = cpu->regs[*rd] + cpu->regs[*rm];
             sscanf(cpu->dmem[addi], "%x", &vali);
-            cpu->pc ++;
+            cpu->pc++;
             break;
         case 0x12: //RETI
             cpu->pc = cpu->io_registers[7];
