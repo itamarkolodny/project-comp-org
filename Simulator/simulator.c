@@ -655,8 +655,17 @@ bool save_disk(CPU *cpu, const char *filename) {
 
     // Write entire disk content
     for (int sector = 0; sector < NUM_SECTORS; sector++) {
-        for (int byte = 0; byte < SECTOR_SIZE; byte++) {
-            fprintf(file, "%02X\n", cpu->disk[sector][byte]);
+        // Process 128 words per sector (512 bytes / 4 bytes per word)
+        for (int word_index = 0; word_index < SECTOR_SIZE/4; word_index++) {
+            uint32_t word = 0;
+
+            // Combine 4 bytes into a 32-bit word
+            for (int j = 0; j < 4; j++) {
+                word |= ((uint32_t)cpu->disk[sector][word_index*4 + j] << (j * 8));
+            }
+
+            // Write the word as 8 hex digits followed by newline
+            fprintf(file, "%08X\n", word);
         }
     }
 
