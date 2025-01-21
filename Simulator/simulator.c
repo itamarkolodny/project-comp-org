@@ -7,6 +7,7 @@
 #include <stdint.h>
 #include <string.h>
 #include <stdbool.h>
+#include <ctype.h>
 // Global variables
 char* register_io_names[] =
     {"irq0enable", "irq1enable", "irq2enable", "irq0status", "irq1status", "irq2status", "irqhandler", "irqreturn",
@@ -89,6 +90,7 @@ int main(int argc, char *argv[]) {
     init_cpu(&cpu);
 
     //load input files
+    printf("%s, %s, %s, %s\n", argv[1], argv[2], argv[3], argv[4]);
     if (!load_instruction_memory(&cpu, argv[1]) ||
         !load_data_memory(&cpu, argv[2]) ||
         !load_disk(&cpu, argv[3]) ||
@@ -201,11 +203,12 @@ void init_cpu(CPU *cpu) {
     cpu->in_isr = false;
 }
 
-bool load_instruction_memory(CPU *cpu, const char *filename) {
+/*bool load_instruction_memory(CPU *cpu, const char *filename) {
     char line[INSTRUCTION_HEX_LENGTH];
     FILE *file = fopen(filename, "r");
 
     if (file == NULL) {
+        fprintf(stderr, "Error load_instruction_memory\n");
         return false;
     }
 
@@ -222,6 +225,50 @@ bool load_instruction_memory(CPU *cpu, const char *filename) {
     }
     fclose(file);
     return true;
+}*/
+bool load_instruction_memory(CPU *cpu, const char *filename) {
+    char line[INSTRUCTION_HEX_LENGTH + 2];  // +2 for newline and null terminator
+    FILE *file = fopen(filename, "r");
+
+    if (file == NULL) {
+        fprintf(stderr, "Error load_instruction_memory: Unable to open file '%s'\n", filename);
+        return false;
+    }
+
+    int i = 0;
+    while (fgets(line, sizeof(line), file)) {
+        // Remove newline and carriage return characters
+        line[strcspn(line, "\r\n")] = 0;
+
+        // Verify line length
+        size_t line_len = strlen(line);
+        if (line_len != 12) {  // Each instruction should be exactly 12 hex chars
+            fprintf(stderr, "Invalid instruction length at line %d: got %zu chars, expected 12\n",
+                    i + 1, line_len);
+            fprintf(stderr, "Instruction: '%s'\n", line);
+            fclose(file);
+            return false;
+        }
+
+        // Copy instruction to memory
+        strncpy(cpu->imem[i], line, 12);
+        cpu->imem[i][12] = '\0';  // Ensure null termination
+        i++;
+
+        if (i >= IMEM_SIZE) {
+            fprintf(stderr, "Warning: Instruction memory full\n");
+            break;
+        }
+    }
+
+    // Fill remaining memory with zeros if needed
+    while (i < IMEM_SIZE) {
+        strcpy(cpu->imem[i], "000000000000");
+        i++;
+    }
+
+    fclose(file);
+    return true;
 }
 
 bool load_data_memory(CPU *cpu, const char *filename) {
@@ -229,6 +276,7 @@ bool load_data_memory(CPU *cpu, const char *filename) {
     FILE *file = fopen(filename, "r");
 
     if (file == NULL) {
+        fprintf(stderr, "Error load_data_memory\n");
         return false;
     }
 
@@ -299,24 +347,127 @@ bool load_irq2(CPU* cpu, const char* filename) {
 }
 
 void fetch(CPU *cpu, char *instruction) {
-    strcpy(instruction, cpu->imem[cpu->pc]);
-}
-
-int parse_hex_substring(char *str, int start, int end, int *result) {
-    int len = end - start + 1;
-    char c[len +1];
-    strncpy(c, str+start,len);
-    c[len] = '\0';
-    if (sscanf(c, "%x", result) == 1) {
-        return 0;
+    if (cpu->pc < 0 || cpu->pc >= IMEM_SIZE) {
+        fprintf(stderr, "Error: PC out of bounds: %d\n", cpu->pc);
+        strcpy(instruction, "000000000000");  // Safe default
+        return;
     }
-    else {
-        printf("Parsing error");
+
+    printf("Fetching instruction at PC=%d: '%s'\n", cpu->pc, cpu->imem[cpu->pc]);
+    strcpy(instruction, cpu->imem[cpu->pc]);
+
+    // Verify instruction length
+    if (strlen(instruction) != 12) {
+        fprintf(stderr, "Error: Invalid instruction length at PC=%d: '%s'\n",
+                cpu->pc, instruction);
+    }
+}
+    //strcpy(instruction, cpu->imem[cpu->pc]);
+//}
+
+/*int parse_hex_substring(char *str, int start, int end, int *result) {
+    // Validate inputs
+    if (!str || !result) {
+        printf("Parsing error: null pointer\n");
         return 1;
     }
-}
 
-void decode(char *instruction, char *opcode, int *rd, int *rs,
+    // Calculate length and validate
+    int len = end - start + 1;
+    if (len <= 0) {
+        printf("Parsing error: invalid length (start=%d, end=%d)\n", start, end);
+        return 1;
+    }
+
+    // Add string length check
+    int str_len = strlen(str);
+    if (start >= str_len || end >= str_len) {
+        printf("Parsing error: indices out of bounds (start=%d, end=%d, string_length=%d)\n",
+               start, end, str_len);
+        return 1;
+    }
+
+    // Allocate memory for substring (+1 for null terminator)
+    char *temp = (char *)malloc((len + 1) * sizeof(char));
+    if (!temp) {
+        printf("Parsing error: memory allocation failed\n");
+        return 1;
+    }
+
+    // Copy substring
+    memcpy(temp, str + start, len);
+    temp[len] = '\0';
+
+    // Debug print
+    printf("Attempting to parse substring: '%s' (len=%d)\n", temp, len);
+
+    // Try to parse
+    if (sscanf(temp, "%x", result) != 1) {
+        printf("Parsing error: invalid hex value '%s'\n", temp);
+        free(temp);
+        return 1;
+    }
+
+    // Clean up and return
+    free(temp);
+    return 0;
+}
+*/
+int parse_hex_substring(char *str, int start, int end, int *result) {
+    // Validate inputs
+    if (!str || !result) {
+        printf("Parsing error: null pointer\n");
+        return 1;
+    }
+
+    // Calculate length and validate
+    int len = end - start + 1;
+    if (len <= 0) {
+        printf("Parsing error: invalid length (start=%d, end=%d)\n", start, end);
+        return 1;
+    }
+
+    // Verify string length
+    int str_len = strlen(str);
+    if (str_len != 12) {  // All instructions should be exactly 12 chars
+        printf("Parsing error: invalid instruction length %d\n", str_len);
+        return 1;
+    }
+
+    if (start >= str_len || end >= str_len) {
+        printf("Parsing error: indices out of bounds (start=%d, end=%d, string_length=%d)\n",
+               start, end, str_len);
+        return 1;
+    }
+
+    // Allocate memory for substring (+1 for null terminator)
+    char *temp = (char *)malloc((len + 1) * sizeof(char));
+    if (!temp) {
+        printf("Parsing error: memory allocation failed\n");
+        return 1;
+    }
+
+    // Copy substring and null terminate
+    memcpy(temp, str + start, len);
+    temp[len] = '\0';
+
+    // Convert to uppercase to handle both cases
+    for (int i = 0; i < len; i++) {
+        temp[i] = toupper(temp[i]);
+    }
+
+    // Try to parse
+    int ret = sscanf(temp, "%x", result);
+    if (ret != 1) {
+        printf("Parsing error: failed to parse hex value '%s'\n", temp);
+        free(temp);
+        return 1;
+    }
+
+    free(temp);
+    return 0;
+}
+/*void decode(char *instruction, char *opcode, int *rd, int *rs,
            int *rt, int *rm, int *imm1, int *imm2) {
     strncpy(opcode, instruction, 2);
     opcode[2] = '\0';
@@ -326,7 +477,71 @@ void decode(char *instruction, char *opcode, int *rd, int *rs,
     parse_hex_substring(instruction, 5, 5, rm);
     parse_hex_substring(instruction, 6, 8, imm1);
     parse_hex_substring(instruction,9 ,11, imm2);
+    if (parse_hex_substring(instruction, 2, 2, rd) != 0 ||
+    parse_hex_substring(instruction, 3, 3, rs) != 0 ||
+    parse_hex_substring(instruction, 4, 4, rt) != 0 ||
+    parse_hex_substring(instruction, 5, 5, rm) != 0 ||
+    parse_hex_substring(instruction, 6, 8, imm1) != 0 ||
+    parse_hex_substring(instruction, 9, 11, imm2) != 0) {
+        fprintf(stderr, "Error decoding instruction: %s\n", instruction);
+    }
+}*/
+void decode(char *instruction, char *opcode, int *rd, int *rs,
+           int *rt, int *rm, int *imm1, int *imm2) {
+
+    // First verify instruction length
+    if (strlen(instruction) != 12) {
+        fprintf(stderr, "Invalid instruction length: %zu\n", strlen(instruction));
+        return;
+    }
+
+    // Copy opcode (first 2 chars)
+    strncpy(opcode, instruction, 2);
+    opcode[2] = '\0';
+
+    printf("Decoding instruction: %s\n", instruction);  // Debug print
+
+    // Parse each field
+    // rd is at position 2
+    if (parse_hex_substring(instruction, 2, 2, rd) != 0) {
+        fprintf(stderr, "Error parsing rd\n");
+        return;
+    }
+
+    // rs is at position 3
+    if (parse_hex_substring(instruction, 3, 3, rs) != 0) {
+        fprintf(stderr, "Error parsing rs\n");
+        return;
+    }
+
+    // rt is at position 4
+    if (parse_hex_substring(instruction, 4, 4, rt) != 0) {
+        fprintf(stderr, "Error parsing rt\n");
+        return;
+    }
+
+    // rm is at position 5
+    if (parse_hex_substring(instruction, 5, 5, rm) != 0) {
+        fprintf(stderr, "Error parsing rm\n");
+        return;
+    }
+
+    // imm1 is positions 6-8
+    if (parse_hex_substring(instruction, 6, 8, imm1) != 0) {
+        fprintf(stderr, "Error parsing imm1\n");
+        return;
+    }
+
+    // imm2 is positions 9-11
+    if (parse_hex_substring(instruction, 9, 11, imm2) != 0) {
+        fprintf(stderr, "Error parsing imm2\n");
+        return;
+    }
+
+    printf("Decoded: op=%s rd=%x rs=%x rt=%x rm=%x imm1=%x imm2=%x\n",
+           opcode, *rd, *rs, *rt, *rm, *imm1, *imm2);  // Debug print
 }
+
 
 void update_trace(CPU *cpu, char *opcode, FILE* trace_fp) {
     fprintf(trace_fp, "%03X ", cpu->pc);
@@ -349,11 +564,19 @@ void update_trace(CPU *cpu, char *opcode, FILE* trace_fp) {
 void execute(CPU *cpu, char *opcode, int *rd, int *rs, int *rt,
             int *rm, int *imm1, int *imm2, FILE *trace_fp, uint32_t* cycle_count, FILE* leds_fp, FILE* hw_fp, FILE* display7seg_fp) {
     update_trace(cpu, opcode, trace_fp);
+    cpu->regs[1] = *imm1;
+    cpu->regs[2] = *imm2;
     int op = 0;
+    int32_t x_add = 0;
+    int32_t address = 0;
+    int32_t addi = 0;
+    int32_t vali = 0;
+    int32_t addressi = 0;
     sscanf(opcode, "%x", &op);
     switch (op) {
         case 0x00: //ADD
             cpu->regs[*rd] = cpu->regs[*rs] + cpu->regs[*rt] + cpu->regs[*rm];
+         printf("rs reg value = %d, rt reg value =%d , rm reg value = %d",cpu->regs[*rs], cpu->regs[*rt], cpu->regs[*rm] );
             cpu->pc ++;
             break;
         case 0x01: //SUB
@@ -446,18 +669,31 @@ void execute(CPU *cpu, char *opcode, int *rd, int *rs, int *rt,
         case 0x0f://JAL
             cpu->regs[*rd] = (cpu->pc) + 1 ;
             cpu->pc = (cpu->regs[*rm] & 0xFFF);
+            printf("rd = %d, rm = %d , pc = %d\n", cpu->regs[*rd], cpu->regs[*rm], cpu->pc);
             break;
         case 0x10://LW
-            int32_t address = cpu->regs[*rs] + cpu->regs[*rt];
+            address = cpu->regs[*rs] + cpu->regs[*rt];
             int32_t val;
-            sscanf(cpu->dmem[address], "%x", &val);
+            if (address >= 0 && address < DMEM_SIZE) {
+                sscanf(cpu->dmem[address], "%x", &val);
+            } else {
+                fprintf(stderr, "Invalid memory address: %d\n", address);
+                return; // Handle error
+            }
+            //sscanf(cpu->dmem[address], "%x", &val);
             cpu->regs[*rd] = val + cpu->regs[*rm];
             cpu->pc++;
             break;
         case 0x11: //SW
-            int32_t addi = cpu->regs[*rs] + cpu->regs[*rt];
-            int32_t vali = cpu->regs[*rd] + cpu->regs[*rm];
-            sscanf(cpu->dmem[addi], "%x", &vali);
+            addi = cpu->regs[*rs] + cpu->regs[*rt];
+            vali = cpu->regs[*rd] + cpu->regs[*rm];
+            if (addi >= 0 && addi < DMEM_SIZE) {
+                sscanf(cpu->dmem[addi], "%x", &vali);
+            } else {
+                fprintf(stderr, "Invalid array index: %d\n", addi);
+                return;
+            }
+            //sscanf(cpu->dmem[addi], "%x", &vali);
             cpu->pc++;
             break;
         case 0x12: //RETI
@@ -465,13 +701,13 @@ void execute(CPU *cpu, char *opcode, int *rd, int *rs, int *rt,
             cpu->in_isr = false;  // Clear the ISR flag
             break;
         case 0x13: //IN
-            int32_t addressi = cpu->regs[*rs] + cpu->regs[*rt];
+            addressi = cpu->regs[*rs] + cpu->regs[*rt];
             cpu->regs[*rd] = cpu->io_registers [addressi];
             cpu->pc ++;
             update_hwregs(cpu, cycle_count, 0, addressi ,hw_fp);
             break;
         case 0x14://OUT
-            int32_t x_add = cpu->regs[*rs] + cpu->regs[*rt];
+            x_add = cpu->regs[*rs] + cpu->regs[*rt];
             if ((x_add == 9) && (cpu->io_registers[x_add] != cpu->regs[*rm])) { //update leds.txt output file
                 cpu->io_registers[x_add] = cpu->regs[*rm];
                 update_leds(cpu, cycle_count, leds_fp);
@@ -509,8 +745,16 @@ void update_leds(CPU* cpu,  uint32_t* cycle_count, FILE* leds_fp) {
 void update_hwregs(CPU* cpu, uint32_t* cycle_count, bool write, int32_t address, FILE* hw_fp) {
     const char* write_read = write ? "WRITE" : "READ";
     const char* reg_name = get_register_name(address);
-    fprintf(hw_fp, "%u %s %s %08x\n", *cycle_count, write_read, reg_name, cpu->io_registers[address]);
-}
+    if (address >= 0 && address < NUM_IO_REGISTERS) {
+            fprintf(hw_fp, "%u %s %s %08x\n", *cycle_count, write ? "WRITE" : "READ",
+                    get_register_name(address), cpu->io_registers[address]);
+        } else {
+            fprintf(stderr, "Invalid IO register address: %d\n", address);
+        }
+    //fprintf(hw_fp, "%u %s %s %08x\n", *cycle_count, write_read, reg_name, cpu->io_registers[address]);
+
+    }
+
 
 const char* get_register_name(int reg_io_num) {
     return register_io_names[reg_io_num];
