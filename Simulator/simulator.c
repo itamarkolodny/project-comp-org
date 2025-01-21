@@ -23,7 +23,8 @@ char* register_io_names[] =
 #define MONITOR_SIZE 256
 #define INSTRUCTION_HEX_LENGTH 13
 #define INIT_DATA_HEX_LENGTH 8
-#define IRQ2IN_LENGTH 3
+#define IRQ2IN_LENGTH 8
+#define MAX_CYCLES 8
 // Structures
 typedef struct {
     int32_t regs[NUM_REGISTERS];  // CPU registers
@@ -37,15 +38,17 @@ typedef struct {
     uint8_t monitor[MONITOR_SIZE][MONITOR_SIZE]; // Monitor frame buffer
     bool halt;                     // Halt flag
     bool in_isr;  // ISR flag
+    int* irq2_cycles;        // Array of irq2 cycles
+    int num_irq2_cycles;     // Number of irq2 cycles
+    int current_irq2_index;  // Current index in irq2_cycles array
 } CPU;
 
 // Function prototypes
 void init_cpu(CPU *cpu);
 bool load_instruction_memory(CPU *cpu, const char *filename);
 bool load_data_memory(CPU *cpu, const char *filename);
-bool load_irq2(const char *filename);
-
-char* fetch(CPU *cpu, int* pc);
+bool load_irq2(CPU* cpu, const char* filename);
+void fetch(CPU *cpu, int* pc);
 void decode(char instruction, char *opcode, int *rd, int *rs,
            int *rt, int *rm, int *imm1, int *imm2);
 void execute(CPU *cpu, char *opcode, int *rd, int *rs, int *rt,
@@ -92,7 +95,7 @@ int main(int argc, char *argv[]) {
     if (!load_instruction_memory(&cpu, argv[1]) ||
         !load_data_memory(&cpu, argv[2]) ||
         !load_disk(&cpu, argv[3]) ||
-        !load_irq2(argv[4])) { //FIXME
+        !load_irq2(&cpu,argv[4])) { //FIXME
         fprintf(stderr, "Error loading input files\n");
         return 1;
     }
@@ -104,6 +107,14 @@ int main(int argc, char *argv[]) {
 
     //main execution loop
     while (!cpu.halt) {
+        // Reset irq2status at start of cycle
+        cpu.io_registers[5] = 0;
+        // Check if we need to raise IRQ2 in this cycle
+        if (cpu.current_irq2_index < cpu.num_irq2_cycles &&
+            cycle_count == cpu.irq2_cycles[cpu.current_irq2_index]) {
+            cpu.io_registers[5] = 1;  // Set irq2status
+            cpu.current_irq2_index++;
+            }
         // Handle interrupts
         handle_interrupts(&cpu);
 
@@ -136,14 +147,14 @@ int main(int argc, char *argv[]) {
 
     //write dmemout.txt
     FILE* dmem_fp = fopen(argv[5], "w");
-    for(int i = 0; i <= DMEM_SIZE; i++) {
+    for(int i = 0; i < DMEM_SIZE; i++) {
         fprintf(dmem_fp, "%s\n", cpu.dmem[i]);
     }
     fclose(dmem_fp);
 
     //write regout.txt
     FILE* regout_fp = fopen(argv[6], "w");
-    for(int i = 3; i <= NUM_REGISTERS; i++) {
+    for(int i = 3; i < NUM_REGISTERS; i++) {
         fprintf(regout_fp, "%08X\n", cpu.regs[i]);
     }
     fclose(regout_fp);
@@ -158,7 +169,6 @@ int main(int argc, char *argv[]) {
         fprintf(stderr, "Error writing disk output\n");
         // Handle error as appropriate
     }
-    fclose(diskout_fp); //FIXME
 
     // Write monitor.txt
     FILE *txt = fopen(argv[13], "w");
@@ -181,6 +191,7 @@ int main(int argc, char *argv[]) {
         }
         fclose(yuv);
     }
+    free(cpu.irq2_cycles);
     return 0;
 }
     /*if (!write_output_files(&cpu, argv[5], argv[6], argv[7], argv[8], argv[9],
@@ -242,31 +253,77 @@ bool load_data_memory(CPU *cpu, const char *filename) {
     return true;
 }
 
-bool load_irq2(const char *filename, CPU *cpu){ //FIXME
-    char line[IRQ2IN_LENGTH];
-    FILE *file = fopen (filename, "r");
+bool load_irq2(CPU* cpu, const char* filename) {
+    FILE* fp;
+    char line[500];
+    int line_count = 0;
 
-    if (file == NULL) {
+    // First count valid lines
+    fp = fopen(filename, "r");
+    if (!fp) {
+        fprintf(stderr, "Error: Cannot open irq2 file %s\n", filename);
         return false;
     }
 
-    int i = 0;
-    while (fgets(line, sizeof(line), file)) {
-        line[strcspn(line, "\n")] = 0;
-        strcpy(cpu->imem[i], line);
-        i ++;
+    // Count non-empty lines
+    while (fgets(line, sizeof(line), fp)) {
+        if (line[0] != '\n' && line[0] != '\r' && line[0] != ' ' && line[0] != '\t') {
+            line_count++;
+        }
+    }
+    fclose(fp);
+
+    // Allocate memory
+    cpu->irq2_cycles = (int*)malloc(line_count * sizeof(int));
+    if (!cpu->irq2_cycles) {
+        fprintf(stderr, "Error: Memory allocation failed for irq2_cycles\n");
+        return false;
+    }
+    cpu->num_irq2_cycles = line_count;
+    cpu->current_irq2_index = 0;
+
+    // Read cycles
+    fp = fopen(filename, "r");
+    if (!fp) {
+        free(cpu->irq2_cycles);
+        fprintf(stderr, "Error: Cannot open irq2 file %s\n", filename);
+        return false;
     }
 
-    while (i < DMEM_SIZE) { // setting all zeroz after the last line in dmem.in
-        strcpy(cpu->imem[i], "00000000");
-        i++;
+    int cycle_count = 0;
+    while (fgets(line, sizeof(line), fp)) {
+        // Skip empty lines and whitespace
+        if (line[0] == '\n' || line[0] == '\r' || line[0] == ' ' || line[0] == '\t') {
+            continue;
+        }
+
+        int cycle = atoi(line);
+        if (cycle < 0) {
+            fprintf(stderr, "Error: Invalid negative cycle number in irq2 file\n");
+            free(cpu->irq2_cycles);
+            fclose(fp);
+            return false;
+        }
+
+        cpu->irq2_cycles[cycle_count] = cycle;
+        cycle_count++;
+
+        // Verify ascending order
+        if (cycle_count > 1 &&
+            cpu->irq2_cycles[cycle_count-1] <= cpu->irq2_cycles[cycle_count-2]) {
+            fprintf(stderr, "Error: IRQ2 cycles must be in ascending order\n");
+            free(cpu->irq2_cycles);
+            fclose(fp);
+            return false;
+            }
     }
-    fclose(file);
+
+    fclose(fp);
     return true;
 }
 
-char* fetch(CPU *cpu, char *instruction) {
-    *instruction = cpu->imem[cpu->pc];
+void fetch(CPU *cpu, char *instruction) {
+    strcpy(instruction, cpu->imem[cpu->pc]);
 }
 
 int parse_hex_substring(char *str, int start, int end, int *result) {
@@ -316,40 +373,42 @@ void update_trace(CPU *cpu, char *opcode, FILE* trace_fp) {
 void execute(CPU *cpu, char *opcode, int *rd, int *rs, int *rt,
             int *rm, int *imm1, int *imm2, FILE *trace_fp, uint32_t* cycle_count, FILE* leds_fp, FILE* hw_fp, FILE* display7seg_fp) {
     update_trace(cpu, opcode, trace_fp);
-    switch (opcode) { //FIXME - check if working because claude didn't like it
-        case "00": //ADD
+    int op = 0;
+    sscanf(opcode, "%x", &op);
+    switch (op) {
+        case 0x00: //ADD
             cpu->regs[*rd] = cpu->regs[*rs] + cpu->regs[*rt] + cpu->regs[*rm];
             cpu->pc ++;
             break;
-        case "01": //SUB
+        case 0x01: //SUB
             cpu->regs[*rd] = cpu->regs[*rs] - cpu->regs[*rt] - cpu->regs[*rm];
             cpu->pc ++;
             break;
-        case "02": //MAC
+        case 0x02: //MAC
             cpu->regs[*rd] = cpu->regs[*rs] * cpu->regs[*rt] + cpu->regs[*rm];
             cpu->pc ++;
             break;
-        case "03": //AND
+        case 0x03: //AND
             cpu->regs[*rd] = cpu->regs[*rs] & cpu->regs[*rt] & cpu->regs[*rm]; // need to check if it is & or &&
             cpu->pc ++;
             break;
-        case "04"://OR
+        case 0x04://OR
             cpu->regs[*rd] = cpu->regs[*rs] | cpu->regs[*rt] | cpu->regs[*rm];
             cpu->pc ++;
             break;
-        case "05"://XOR
+        case 0x05://XOR
             cpu->regs[*rd] = cpu->regs[*rs] ^ cpu->regs[*rt] ^ cpu->regs[*rm];
             cpu->pc ++;
             break;
-        case "06"://SLL
+        case 0x06://SLL
             cpu->regs[*rd] = cpu->regs[*rs] << cpu->regs[*rt];
             cpu->pc ++;
             break;
-        case "07"://SRA
+        case 0x07://SRA
             cpu->regs[*rd] = cpu->regs[*rs] >> cpu->regs[*rt];// need to check
             cpu->pc ++;
             break;
-        case "08"://SRL
+        case 0x08://SRL
             uint32_t value = (uint32_t) cpu->regs[*rs]; // need to check
             cpu->regs[*rd] = (int32_t) (value >> cpu->regs[*rt]);
             cpu->pc ++;
