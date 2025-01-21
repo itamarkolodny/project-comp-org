@@ -43,7 +43,6 @@ typedef struct {
 void init_cpu(CPU *cpu);
 bool load_instruction_memory(CPU *cpu, const char *filename);
 bool load_data_memory(CPU *cpu, const char *filename);
-//bool load_disk(CPU *cpu, const char *filename);
 bool load_irq2(const char *filename);
 
 char* fetch(CPU *cpu, int* pc);
