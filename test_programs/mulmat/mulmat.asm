@@ -1,40 +1,58 @@
-# Setup base addresses for Matrix A, B, and C
-add $a0, $zero, $zero, $zero, 0x100, 0  # Base address of Matrix A
-add $a1, $zero, $zero, $zero, 0x110, 0  # Base address of Matrix B
-add $a2, $zero, $zero, $zero, 0x120, 0  # Base address of Result Matrix C
+# Matrix multiplication of two 4x4 matrices
+# Result[i][j] = sum(Matrix1[i][k] * Matrix2[k][j]) for k=0 to 3
 
-# Initialize loop counters
-add $t0, $zero, $zero, $zero, 0, 0       # i = 0, row counter for A and C
-add $t1, $zero, $zero, $zero, 0, 0       # j = 0, column counter for B and C
+# Initialize outer loop counter (i) - row of first matrix
+add $t0, $zero, $imm1, $zero, 0, 0      # i = 0
 
-# Outer loop label for iterating over rows of A
-loop_i:
-    # Inner loop for iterating over columns of B
-    loop_j:
-        add $t2, $zero, $zero, $zero, 0, 0  # sum = 0
+outer_loop:
+    # Initialize middle loop counter (j) - column of second matrix
+    add $t1, $zero, $imm1, $zero, 0, 0  # j = 0
 
-        # k loop for dot product calculation
-        add $t3, $zero, $zero, $zero, 0, 0  # k = 0
-        dot_product_loop:
-            # Calculate addresses for A[i][k], B[k][j], and C[i][j]
-            lw $s0, $a0, $t0, $t3, 0, 0    # Load A[i][k]
-            lw $s1, $a1, $t3, $t1, 0, 0    # Load B[k][j]
-            mac $t2, $s0, $s1, $t2         # sum += A[i][k] * B[k][j]
+middle_loop:
+    # Initialize accumulator for dot product
+    add $v0, $zero, $zero, $zero, 0, 0  # sum = 0
 
-            # Increment k
-            add $t3, $t3, $imm1, $zero, 1, 0  # k++
-            blt $t3, $imm1, $zero, dot_product_loop, 4, 0  # if k < 4 continue dot_product_loop
+    # Initialize inner loop counter (k)
+    add $t2, $zero, $imm1, $zero, 0, 0  # k = 0
 
-        # Store result in C[i][j]
-        sw $a2, $t0, $t1, $t2, 0, 0    # C[i][j] = sum
+inner_loop:
+    # Calculate address of Matrix1[i][k]
+    mac $s0, $t0, $imm1, $zero, 4, 0    # i * 4
+    add $s0, $s0, $t2, $zero, 0, 0      # i * 4 + k
+    add $s0, $s0, $imm1, $zero, 0x100, 0 # base address + offset
 
-        # Increment j
-        add $t1, $t1, $imm1, $zero, 1, 0  # j++
-        blt $t1, $imm1, $zero, loop_j, 4, 0  # if j < 4 continue loop_j
+    # Calculate address of Matrix2[k][j]
+    mac $s1, $t2, $imm1, $zero, 4, 0    # k * 4
+    add $s1, $s1, $t1, $zero, 0, 0      # k * 4 + j
+    add $s1, $s1, $imm1, $zero, 0x110, 0 # base address + offset
 
-    # Increment i
-    add $t0, $t0, $imm1, $zero, 1, 0  # i++
-    blt $t0, $imm1, $zero, loop_i, 4, 0  # if i < 4 continue loop_i
+    # Load values from both matrices
+    lw $a0, $zero, $zero, $s0, 0, 0     # Load Matrix1[i][k]
+    lw $a1, $zero, $zero, $s1, 0, 0     # Load Matrix2[k][j]
+
+    # Multiply and accumulate
+    mac $v0, $a0, $a1, $v0, 0, 0        # sum += Matrix1[i][k] * Matrix2[k][j]
+
+    # Increment k and check if inner loop is done
+    add $t2, $t2, $imm1, $zero, 1, 0    # k++
+    blt $zero, $t2, $imm1, inner_loop, 4 # continue if k < 4
+
+    # Store result in Matrix3[i][j]
+    # Calculate result address
+    mac $s0, $t0, $imm1, $zero, 4, 0    # i * 4
+    add $s0, $s0, $t1, $zero, 0, 0      # i * 4 + j
+    add $s0, $s0, $imm1, $zero, 0x120, 0 # base address + offset
+
+    # Store the accumulated value
+    sw $zero, $zero, $zero, $v0, $s0, 0
+
+    # Increment j and check if middle loop is done
+    add $t1, $t1, $imm1, $zero, 1, 0    # j++
+    blt $zero, $t1, $imm1, middle_loop, 4 # continue if j < 4
+
+    # Increment i and check if outer loop is done
+    add $t0, $t0, $imm1, $zero, 1, 0    # i++
+    blt $zero, $t0, $imm1, outer_loop, 4 # continue if i < 4
 
 # End program
-halt
+halt $zero, $zero, $zero, $zero, 0, 0
