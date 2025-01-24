@@ -272,7 +272,7 @@ bool load_instruction_memory(CPU *cpu, const char *filename) {
 }
 
 bool load_data_memory(CPU *cpu, const char *filename) {
-    char line[INIT_DATA_HEX_LENGTH];
+    char line[INIT_DATA_HEX_LENGTH+1];
     FILE *file = fopen(filename, "r");
 
     if (file == NULL) {
@@ -281,11 +281,14 @@ bool load_data_memory(CPU *cpu, const char *filename) {
     }
 
     int i = 0;
+
     while (fgets(line, sizeof(line), file)) { // assuming that the file is smaller then 4096 rows
         line[strcspn(line, "\n")] = 0;
         strcpy(cpu->dmem[i], line);
-        i ++;
+        printf("dmem[%d]: %s\n", i, cpu->dmem[i]);
+        i= i+1;
     }
+
 
     while (i < DMEM_SIZE) { // setting all zeroz after the last line in dmem.in
         strcpy(cpu->dmem[i], "00000000\0");
@@ -489,7 +492,7 @@ int parse_hex_substring(char *str, int start, int end, int *result) {
 void decode(char *instruction, char *opcode, int *rd, int *rs,
            int *rt, int *rm, int *imm1, int *imm2) {
 
-    // First verify instruction length
+    //verify instruction length
     if (strlen(instruction) != 12) {
         fprintf(stderr, "Invalid instruction length: %zu\n", strlen(instruction));
         return;
@@ -548,24 +551,25 @@ void update_trace(CPU *cpu, char *opcode, FILE* trace_fp) {
     fprintf(trace_fp, "%s ", cpu->imem[cpu->pc]);
     fprintf(trace_fp, "00000000 ");
 
-    int32_t imm1_value, imm2_value;
-    parse_hex_substring(cpu->imem[cpu->pc], 6, 8, &imm1_value);
-    parse_hex_substring(cpu->imem[cpu->pc], 9, 11, &imm2_value);
+   // int32_t imm1_value, imm2_value;
+   // parse_hex_substring(cpu->imem[cpu->pc], 6, 8, &imm1_value);
+   // parse_hex_substring(cpu->imem[cpu->pc], 9, 11, &imm2_value);
 
-    fprintf(trace_fp, "%08X ", (int32_t)imm1_value);
-    fprintf(trace_fp, "%08X ", (int32_t)imm2_value);
+    fprintf(trace_fp, "%08x ", cpu->regs[1]);
+    fprintf(trace_fp, "%08x ", cpu->regs[2]);
 
     for(int i = 3; i < NUM_REGISTERS; i++) {
-        fprintf(trace_fp, "%08X ", cpu->regs[i]);
+        fprintf(trace_fp, "%08x ", cpu->regs[i]);
     }
     fprintf(trace_fp, "\n");
 }
 
 void execute(CPU *cpu, char *opcode, int *rd, int *rs, int *rt,
             int *rm, int *imm1, int *imm2, FILE *trace_fp, uint32_t* cycle_count, FILE* leds_fp, FILE* hw_fp, FILE* display7seg_fp) {
+    cpu->regs[1] = (*imm1 & 0x800) ? (*imm1 | 0xFFFFF000) : *imm1;
+    cpu->regs[2] = (*imm2 & 0x800) ? (*imm2 | 0xFFFFF000) : *imm2;
     update_trace(cpu, opcode, trace_fp);
-    cpu->regs[1] = *imm1;
-    cpu->regs[2] = *imm2;
+    printf("reg[imm1] = %d, reg[imm2] = %d\n", cpu->regs[1], cpu->regs[2]);
     int op = 0;
     int32_t x_add = 0;
     int32_t address = 0;
@@ -576,7 +580,7 @@ void execute(CPU *cpu, char *opcode, int *rd, int *rs, int *rt,
     switch (op) {
         case 0x00: //ADD
             cpu->regs[*rd] = cpu->regs[*rs] + cpu->regs[*rt] + cpu->regs[*rm];
-         printf("rs reg value = %d, rt reg value =%d , rm reg value = %d",cpu->regs[*rs], cpu->regs[*rt], cpu->regs[*rm] );
+            printf("rs reg value = %d, rt reg value =%d , rm reg value = %d",cpu->regs[*rs], cpu->regs[*rt], cpu->regs[*rm] );
             cpu->pc ++;
             break;
         case 0x01: //SUB
@@ -635,6 +639,7 @@ void execute(CPU *cpu, char *opcode, int *rd, int *rs, int *rt,
             }
             break;
         case 0x0b: //BLT
+            printf("reach BLT");
             if (cpu->regs[*rs] >= cpu->regs[*rt]) {
                 cpu->pc ++;
             }
@@ -673,25 +678,29 @@ void execute(CPU *cpu, char *opcode, int *rd, int *rs, int *rt,
             break;
         case 0x10://LW
             address = cpu->regs[*rs] + cpu->regs[*rt];
-            int32_t val;
+            int32_t val = 0;
             if (address >= 0 && address < DMEM_SIZE) {
                 sscanf(cpu->dmem[address], "%x", &val);
+                printf("LW: address=%d, dmem[address+1]=%s, val=%d\n",
+              address, cpu->dmem[address], val);
+                cpu->regs[*rd] = val + cpu->regs[*rm];
             } else {
                 fprintf(stderr, "Invalid memory address: %d\n", address);
                 return; // Handle error
             }
-            //sscanf(cpu->dmem[address], "%x", &val);
-            cpu->regs[*rd] = val + cpu->regs[*rm];
             cpu->pc++;
             break;
         case 0x11: //SW
             addi = cpu->regs[*rs] + cpu->regs[*rt];
             vali = cpu->regs[*rd] + cpu->regs[*rm];
             if (addi >= 0 && addi < DMEM_SIZE) {
-                sscanf(cpu->dmem[addi], "%x", &vali);
+                //sscanf(cpu->dmem[addi], "%x", &vali); // incorrect
+                sprintf(cpu->dmem[addi], "%08x", cpu->regs[*rm] + cpu->regs[*rd]);
             } else {
-                fprintf(stderr, "Invalid array index: %d\n", addi);
-                return;
+                fprintf(stderr, "Invalid array index: %d (rs=%d, rt=%d)\n",
+          addi, cpu->regs[*rs], cpu->regs[*rt]);
+                cpu->halt = true;
+                exit(1);
             }
             //sscanf(cpu->dmem[addi], "%x", &vali);
             cpu->pc++;
@@ -734,8 +743,8 @@ void execute(CPU *cpu, char *opcode, int *rd, int *rs, int *rt,
             cpu->pc ++;
             break;
         case 0x15: //HALT
-            break;
-
+            cpu->halt = true;
+            exit(0);
     }
 }
 void update_leds(CPU* cpu,  uint32_t* cycle_count, FILE* leds_fp) {
