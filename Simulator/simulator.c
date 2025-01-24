@@ -150,7 +150,9 @@ int main(int argc, char *argv[]) {
     //write dmemout.txt
     FILE* dmem_fp = fopen(argv[5], "w");
     for(int i = 0; i < DMEM_SIZE; i++) {
-        fprintf(dmem_fp, "%s\n", cpu.dmem[i]);
+        int value;
+        sscanf(cpu.dmem[i], "%x", &value);
+        fprintf(dmem_fp, "%08X\n", value);
     }
     fclose(dmem_fp);
 
