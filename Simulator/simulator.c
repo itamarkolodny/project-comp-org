@@ -23,9 +23,10 @@ char* register_io_names[] =
 #define NUM_IO_REGISTERS 23
 #define MONITOR_SIZE 256
 #define INSTRUCTION_HEX_LENGTH 13
-#define INIT_DATA_HEX_LENGTH 8
+#define INIT_DATA_HEX_LENGTH 9
 #define IRQ2IN_LENGTH 8
 #define MAX_CYCLES 8
+
 // Structures
 typedef struct {
     int32_t regs[NUM_REGISTERS];  // CPU registers
@@ -272,7 +273,7 @@ bool load_instruction_memory(CPU *cpu, const char *filename) {
 }
 
 bool load_data_memory(CPU *cpu, const char *filename) {
-    char line[INIT_DATA_HEX_LENGTH+1];
+    char line[INIT_DATA_HEX_LENGTH+2];
     FILE *file = fopen(filename, "r");
 
     if (file == NULL) {
@@ -285,7 +286,8 @@ bool load_data_memory(CPU *cpu, const char *filename) {
     while (fgets(line, sizeof(line), file)) { // assuming that the file is smaller then 4096 rows
         line[strcspn(line, "\n")] = 0;
         strcpy(cpu->dmem[i], line);
-        printf("dmem[%d]: %s\n", i, cpu->dmem[i]);
+        printf("dmem[%d]:%s\n", i, cpu->dmem[i]);
+        cpu->dmem[i][8] = '\0';
         i= i+1;
     }
 
@@ -295,8 +297,23 @@ bool load_data_memory(CPU *cpu, const char *filename) {
         i++;
     }
     fclose(file);
-    return true;
+    return  true;
 }
+
+        /*char mline[9];
+        int i = 0;
+        while (!feof(filename))
+        {
+            fscanf(filename, "%8[^\n]\n", mline); //scans the first 8 chars in a line
+            strcpy(cpu->dmem[i], mline); //fills array[i]
+            i++;
+        }
+        while (i < SIZE)
+        {
+            strcpy(cpu->dmem[i], "00000000"); // paddin with zeros all the empty memory fills array[i]
+            i++;
+        }
+    }*/
 
 bool load_irq2(CPU* cpu, const char* filename) {
     FILE* fp;
