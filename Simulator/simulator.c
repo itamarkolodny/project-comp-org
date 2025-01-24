@@ -111,7 +111,7 @@ int main(int argc, char *argv[]) {
         cpu.io_registers[5] = 0;
         // Check if we need to raise IRQ2 in this cycle
         if (cpu.current_irq2_index < cpu.num_irq2_cycles &&
-            cycle_count == cpu.irq2_cycles[cpu.current_irq2_index]) {
+            cycle_count-1 == cpu.irq2_cycles[cpu.current_irq2_index]) {
             cpu.io_registers[5] = 1;  // Set irq2status
             cpu.current_irq2_index++;
             }
@@ -352,15 +352,16 @@ bool load_irq2(CPU* cpu, const char* filename) {
         return false;
     }
 
-    int cycle_count = 0;
+    int cycle_count_i = 0;
     while (fgets(line, sizeof(line), fp)) {
         // Skip empty lines and whitespace
         if (line[0] == '\n' || line[0] == '\r' || line[0] == ' ' || line[0] == '\t') {
             continue;
         }
         int cycle = atoi(line);
-        cpu->irq2_cycles[cycle_count] = cycle;
-        cycle_count++;
+        cpu->irq2_cycles[cycle_count_i] = cycle;
+        printf("irq2_cycles[%d] = %d\n", cycle_count_i, cycle);
+        cycle_count_i++;
     }
     fclose(fp);
     return true;
@@ -573,10 +574,10 @@ void update_trace(CPU *cpu, char *opcode, FILE* trace_fp) {
    // parse_hex_substring(cpu->imem[cpu->pc], 9, 11, &imm2_value);
 
     fprintf(trace_fp, "%08x ", cpu->regs[1]);
-    fprintf(trace_fp, "%08x ", cpu->regs[2]);
+    fprintf(trace_fp, "%08x", cpu->regs[2]);
 
     for(int i = 3; i < NUM_REGISTERS; i++) {
-        fprintf(trace_fp, "%08x ", cpu->regs[i]);
+        fprintf(trace_fp, " %08x", cpu->regs[i]);
     }
     fprintf(trace_fp, "\n");
 }
@@ -761,7 +762,7 @@ void execute(CPU *cpu, char *opcode, int *rd, int *rs, int *rt,
             break;
         case 0x15: //HALT
             cpu->halt = true;
-            exit(0);
+            break;
     }
 }
 void update_leds(CPU* cpu,  uint32_t* cycle_count, FILE* leds_fp) {
@@ -805,7 +806,7 @@ void handle_interrupts(CPU *cpu) {
     bool irq =((cpu->io_registers[0] && cpu->io_registers[3]) || (cpu->io_registers[1] && cpu->io_registers[4]) || (cpu->io_registers[2] && cpu->io_registers[5]));
      if (irq && !cpu->in_isr) {
          // Save return address
-         cpu->io_registers[7] = cpu->pc + 1;
+         cpu->io_registers[7] = cpu->pc;
          // Jump to interrupt handler
          cpu->pc = cpu->io_registers[6];
          // Set ISR flag
