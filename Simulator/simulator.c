@@ -608,7 +608,8 @@ void execute(CPU *cpu, char *opcode, int *rd, int *rs, int *rt,
             cpu->pc ++;
             break;
         case 0x02: //MAC
-            cpu->regs[*rd] = cpu->regs[*rs] * cpu->regs[*rt] + cpu->regs[*rm];
+            cpu->regs[*rd] = (cpu->regs[*rs] * cpu->regs[*rt])+ cpu->regs[*rm];
+            printf("rd after mul = %d", cpu->regs[*rd]);
             cpu->pc ++;
             break;
         case 0x03: //AND
