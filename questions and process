@@ -5,5 +5,11 @@
 - Let the assembly code clear irq status using an OUT instruction ?
 
 
+need to fix:
+1. assembler - remove // or /*
+
+
+
+
 
 

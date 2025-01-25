@@ -1,54 +1,71 @@
-# Binomial coefficient calculator (n choose k)
-# Input: n at address 0x100, k at address 0x101
-# Output: result stored at address 0x102
+.word 0x100 5   # n = 5 (stored at address 0x100)
+.word 0x101 2   # k = 2 (stored at address 0x101)
 
-# Main program
-        lw      $a0, $zero, $imm1, $zero, 0x100, 0     # Load n from memory
-        lw      $a1, $zero, $imm1, $zero, 0x101, 0     # Load k from memory
-        add     $sp, $zero, $imm1, $zero, 0x400, 0     # Initialize stack pointer
-        jal     $ra, $zero, $zero, $imm1, binom, 0     # Call binom(n,k)
-        sw      $zero, $imm1, $zero, $v0, 0x102, 0     # Store result
-        halt    $zero, $zero, $zero, $zero, 0, 0       # End program
+# Initialize stack pointer to top of stack
+sll     $sp, $imm1, $imm2, $zero, 1, 11
 
-# Function binom(n,k)
-# Parameters: n in $a0, k in $a1
-# Returns: result in $v0
+# Load n and k into $a0 and $a1
+lw      $a0, $zero, $imm2, $zero, 0, 0x100
+lw      $a1, $zero, $imm2, $zero, 0, 0x101
+
+# Call the binom function
+jal     $ra, $zero, $zero, $imm2, 0, binom
+
+# Store the result in memory address 0x102
+sw      $zero, $zero, $imm2, $v0, 0, 0x102
+
+# Halt execution
+halt    $zero, $zero, $zero, $zero, 0, 0
+
+# Function to calculate binom(n, k)
 binom:
-        # Push return address and parameters to stack
-        sub     $sp, $sp, $imm1, $zero, 3, 0          # Allocate stack space
-        sw      $sp, $imm1, $zero, $ra, 0, 0          # Save return address
-        sw      $sp, $imm1, $zero, $a0, 1, 0          # Save n
-        sw      $sp, $imm1, $zero, $a1, 2, 0          # Save k
+    # Allocate space on the stack for 4 items: $ra, $s0, $a0, $a1
+    add     $sp, $sp, $imm2, $zero, 0, -4
 
-        # Check base cases: if k == 0 or n == k return 1
-        beq     $zero, $a1, $zero, $imm1, return_one, 0  # if k == 0, return 1
-        bne     $zero, $a0, $a1, $imm1, recurse, 0      # if n != k, continue
+    # Save caller's registers onto the stack
+    sw      $zero, $sp, $imm2, $ra, 0, 3
+    sw      $zero, $sp, $imm2, $s0, 0, 2
+    sw      $zero, $sp, $imm2, $a0, 0, 1
+    sw      $zero, $sp, $imm2, $a1, 0, 0
+
+    # Base case: if k == 0 or n == k, return 1
+    beq     $zero, $a1, $zero, $imm2, 0, return_one
+    beq     $zero, $a1, $a0, $imm2, 0, return_one
+
+    # Recursive case: calculate binom(n-1, k-1)
+    sub     $a0, $a0, $imm2, $zero, 0, 1   # n = n - 1
+    sub     $a1, $a1, $imm2, $zero, 0, 1   # k = k - 1
+    jal     $ra, $zero, $zero, $imm2, 0, binom
+    add     $s0, $v0, $zero, $zero, 0, 0   # $s0 = binom(n-1, k-1)
+
+    # Restore $a0 and $a1 from stack for the second recursive call
+    lw      $a0, $sp, $imm2, $zero, 0, 1   # Restore original n
+    lw      $a1, $sp, $imm2, $zero, 0, 0   # Restore original k
+    sub     $a0, $a0, $imm2, $zero, 0, 1   # n = n - 1
+    jal     $ra, $zero, $zero, $imm2, 0, binom
+
+    # Aggregate results
+    add     $v0, $v0, $s0, $zero, 0, 0     # $v0 = binom(n-1, k-1) + binom(n-1, k)
+
+    # Jump to return sequence
+    beq     $zero, $zero, $zero, $imm2, 0, return
+
+return_zero:
+    add     $v0, $zero, $zero, $zero, 0, 0 # $v0 = 0
+    beq     $zero, $zero, $zero, $imm2, 0, return
 
 return_one:
-        add     $v0, $zero, $imm1, $zero, 1, 0        # Return value = 1
-        beq     $zero, $zero, $zero, $imm1, return, 0  # Jump to return
-
-recurse:
-        # First recursive call: binom(n-1, k-1)
-        sub     $a0, $a0, $imm1, $zero, 1, 0          # n-1
-        sub     $a1, $a1, $imm1, $zero, 1, 0          # k-1
-        jal     $ra, $zero, $zero, $imm1, binom, 0    # Call binom(n-1,k-1)
-        add     $s0, $v0, $zero, $zero, 0, 0          # Save first result
-
-        # Restore n,k for second call
-        lw      $a0, $sp, $imm1, $zero, 1, 0          # Restore n
-        lw      $a1, $sp, $imm1, $zero, 2, 0          # Restore k
-
-        # Second recursive call: binom(n-1, k)
-        sub     $a0, $a0, $imm1, $zero, 1, 0          # n-1
-        jal     $ra, $zero, $zero, $imm1, binom, 0    # Call binom(n-1,k)
-
-        # Add results
-        add     $v0, $v0, $s0, $zero, 0, 0            # $v0 = binom(n-1,k-1) + binom(n-1,k)
+    add     $v0, $zero, $imm2, $zero, 0, 1 # $v0 = 1
 
 return:
-        # Restore stack and return
-        lw      $ra, $sp, $imm1, $zero, 0, 0          # Restore return address
-        add     $sp, $sp, $imm1, $zero, 3, 0          # Deallocate stack space
-        beq     $zero, $zero, $zero, $ra, 0, 0        # Return
+    # Restore caller's registers from the stack
+    lw      $ra, $sp, $imm2, $zero, 0, 3   # Restore $ra
+    lw      $s0, $sp, $imm2, $zero, 0, 2   # Restore $s0
+    lw      $a0, $sp, $imm2, $zero, 0, 1   # Restore $a0
+    lw      $a1, $sp, $imm2, $zero, 0, 0   # Restore $a1
 
+    # Deallocate stack space
+    add     $sp, $sp, $imm2, $zero, 0, 4
+
+    # Return to caller
+    beq     $zero, $zero, $zero, $ra, 0, 0
