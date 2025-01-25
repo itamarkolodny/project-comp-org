@@ -152,14 +152,14 @@ int main(int argc, char *argv[]) {
     for(int i = 0; i < DMEM_SIZE; i++) {
         int value;
         sscanf(cpu.dmem[i], "%x", &value);
-        fprintf(dmem_fp, "%08X\n", value);
+       // fprintf(dmem_fp, "%08X\n", value); // DELETE
     }
     fclose(dmem_fp);
 
     //write regout.txt
     FILE* regout_fp = fopen(argv[6], "w");
     for(int i = 3; i < NUM_REGISTERS; i++) {
-        fprintf(regout_fp, "%08X\n", cpu.regs[i]);
+      //  fprintf(regout_fp, "%08X\n", cpu.regs[i]);// DELETE
     }
     fclose(regout_fp);
 
@@ -206,29 +206,7 @@ void init_cpu(CPU *cpu) {
     cpu->in_isr = false;
 }
 
-/*bool load_instruction_memory(CPU *cpu, const char *filename) {
-    char line[INSTRUCTION_HEX_LENGTH];
-    FILE *file = fopen(filename, "r");
 
-    if (file == NULL) {
-        fprintf(stderr, "Error load_instruction_memory\n");
-        return false;
-    }
-
-    int i = 0;
-    while (fgets(line, sizeof(line), file)) { // assuming that the file is smaller then 4096 rows
-        line[strcspn(line, "\n")] = 0;
-        strcpy(cpu->imem[i], line);
-        i ++;
-    }
-
-    while (i < IMEM_SIZE) { // setting all zeroz after the last line in imem.in
-        strcpy(cpu->imem[i], "000000000000");
-        i++;
-    }
-    fclose(file);
-    return true;
-}*/
 bool load_instruction_memory(CPU *cpu, const char *filename) {
     char line[INSTRUCTION_HEX_LENGTH + 2];  // +2 for newline and null terminator
     FILE *file = fopen(filename, "r");
@@ -288,7 +266,6 @@ bool load_data_memory(CPU *cpu, const char *filename) {
     while (fgets(line, sizeof(line), file)) { // assuming that the file is smaller then 4096 rows
         line[strcspn(line, "\n")] = 0;
         strcpy(cpu->dmem[i], line);
-        printf("dmem[%d]:%s\n", i, cpu->dmem[i]);
         cpu->dmem[i][8] = '\0';
         i= i+1;
     }
@@ -302,20 +279,7 @@ bool load_data_memory(CPU *cpu, const char *filename) {
     return  true;
 }
 
-        /*char mline[9];
-        int i = 0;
-        while (!feof(filename))
-        {
-            fscanf(filename, "%8[^\n]\n", mline); //scans the first 8 chars in a line
-            strcpy(cpu->dmem[i], mline); //fills array[i]
-            i++;
-        }
-        while (i < SIZE)
-        {
-            strcpy(cpu->dmem[i], "00000000"); // paddin with zeros all the empty memory fills array[i]
-            i++;
-        }
-    }*/
+
 
 bool load_irq2(CPU* cpu, const char* filename) {
     FILE* fp;
@@ -362,7 +326,7 @@ bool load_irq2(CPU* cpu, const char* filename) {
         }
         int cycle = atoi(line);
         cpu->irq2_cycles[cycle_count_i] = cycle;
-        printf("irq2_cycles[%d] = %d\n", cycle_count_i, cycle);
+        //printf("irq2_cycles[%d] = %d\n", cycle_count_i, cycle);//DELETE
         cycle_count_i++;
     }
     fclose(fp);
@@ -376,7 +340,7 @@ void fetch(CPU *cpu, char *instruction) {
         return;
     }
 
-    printf("Fetching instruction at PC=%d: '%s'\n", cpu->pc, cpu->imem[cpu->pc]);
+    //printf("Fetching instruction at PC=%d: '%s'\n", cpu->pc, cpu->imem[cpu->pc]);
     strcpy(instruction, cpu->imem[cpu->pc]);
 
     // Verify instruction length
@@ -522,7 +486,7 @@ void decode(char *instruction, char *opcode, int *rd, int *rs,
     strncpy(opcode, instruction, 2);
     opcode[2] = '\0';
 
-    printf("Decoding instruction: %s\n", instruction);  // Debug print
+    //printf("Decoding instruction: %s\n", instruction);  // Debug print
 
     // Parse each field
     // rd is at position 2
@@ -560,9 +524,8 @@ void decode(char *instruction, char *opcode, int *rd, int *rs,
         fprintf(stderr, "Error parsing imm2\n");
         return;
     }
-
-    printf("Decoded: op=%s rd=%x rs=%x rt=%x rm=%x imm1=%x imm2=%x\n",
-           opcode, *rd, *rs, *rt, *rm, *imm1, *imm2);  // Debug print
+    //printf("Decoded: op=%s rd=%x rs=%x rt=%x rm=%x imm1=%x imm2=%x\n",
+          // opcode, *rd, *rs, *rt, *rm, *imm1, *imm2);  // Debug print //DELETE
 }
 
 
@@ -589,7 +552,7 @@ void execute(CPU *cpu, char *opcode, int *rd, int *rs, int *rt,
     cpu->regs[1] = (*imm1 & 0x800) ? (*imm1 | 0xFFFFF000) : *imm1;
     cpu->regs[2] = (*imm2 & 0x800) ? (*imm2 | 0xFFFFF000) : *imm2;
     update_trace(cpu, opcode, trace_fp);
-    printf("reg[imm1] = %d, reg[imm2] = %d\n", cpu->regs[1], cpu->regs[2]);
+    //printf("reg[imm1] = %d, reg[imm2] = %d\n", cpu->regs[1], cpu->regs[2]);
     int op = 0;
     int32_t x_add = 0;
     int32_t address = 0;
@@ -600,7 +563,7 @@ void execute(CPU *cpu, char *opcode, int *rd, int *rs, int *rt,
     switch (op) {
         case 0x00: //ADD
             cpu->regs[*rd] = cpu->regs[*rs] + cpu->regs[*rt] + cpu->regs[*rm];
-            printf("rs reg value = %d, rt reg value =%d , rm reg value = %d",cpu->regs[*rs], cpu->regs[*rt], cpu->regs[*rm] );
+         //   printf("rs reg value = %d, rt reg value =%d , rm reg value = %d",cpu->regs[*rs], cpu->regs[*rt], cpu->regs[*rm] ); //DELETE
             cpu->pc ++;
             break;
         case 0x01: //SUB
@@ -609,7 +572,7 @@ void execute(CPU *cpu, char *opcode, int *rd, int *rs, int *rt,
             break;
         case 0x02: //MAC
             cpu->regs[*rd] = (cpu->regs[*rs] * cpu->regs[*rt])+ cpu->regs[*rm];
-            printf("rd after mul = %d", cpu->regs[*rd]);
+         //   printf("rd after mul = %d", cpu->regs[*rd]); // DELETE
             cpu->pc ++;
             break;
         case 0x03: //AND
@@ -660,7 +623,6 @@ void execute(CPU *cpu, char *opcode, int *rd, int *rs, int *rt,
             }
             break;
         case 0x0b: //BLT
-            printf("reach BLT");
             if (cpu->regs[*rs] >= cpu->regs[*rt]) {
                 cpu->pc ++;
             }
@@ -695,15 +657,15 @@ void execute(CPU *cpu, char *opcode, int *rd, int *rs, int *rt,
         case 0x0f://JAL
             cpu->regs[*rd] = (cpu->pc) + 1 ;
             cpu->pc = (cpu->regs[*rm] & 0xFFF);
-            printf("rd = %d, rm = %d , pc = %d\n", cpu->regs[*rd], cpu->regs[*rm], cpu->pc);
+          //  printf("rd = %d, rm = %d , pc = %d\n", cpu->regs[*rd], cpu->regs[*rm], cpu->pc); //DELETE
             break;
         case 0x10://LW
             address = cpu->regs[*rs] + cpu->regs[*rt];
             int32_t val = 0;
             if (address >= 0 && address < DMEM_SIZE) {
                 sscanf(cpu->dmem[address], "%x", &val);
-                printf("LW: address=%d, dmem[address+1]=%s, val=%d\n",
-              address, cpu->dmem[address], val);
+              //  printf("LW: address=%d, dmem[address+1]=%s, val=%d\n",
+           //   address, cpu->dmem[address], val); //DELETE
                 cpu->regs[*rd] = val + cpu->regs[*rm];
             } else {
                 fprintf(stderr, "Invalid memory address: %d\n", address);
@@ -844,46 +806,36 @@ void update_peripherals(CPU *cpu) {
 }
 // Function to start a disk operation
 void start_disk_operation(CPU *cpu) {
-    uint32_t command = cpu->io_registers[14];  // diskcmd
-    uint32_t sector = cpu->io_registers[15];   // disksector
-    uint32_t buffer = cpu->io_registers[16];   // diskbuffer (memory address)
+    uint32_t command = cpu->io_registers[14];
+    uint32_t sector = cpu->io_registers[15];
+    uint32_t buffer = cpu->io_registers[16];
 
-    //DELETE
-    /*// Validate parameters
-    if (sector >= NUM_SECTORS) {
-        // Invalid parameters - ignore command
-        cpu->io_registers[14] = 0;  // Clear command
-        return;
-    }*/
-
-    // Start operation if disk is ready
     if (cpu->io_registers[17] == 0) {
-        cpu->io_registers[17] = 1;  // Set disk status to busy
-        cpu->disk_timer = 0;         // Initialize timer
+        cpu->io_registers[17] = 1;
+        cpu->disk_timer = 0;
 
-        // Perform DMA transfer based on command
-        if (command == 1) {  // Read operation - disk to memory
-            // Copy 128 words (512 bytes) from disk sector to memory buffer
-            for (int i = 0; i < SECTOR_SIZE; i += 4) {
+        if (command == 1) {  // Read from disk to memory
+            // Initialize buffer first
+            for (int i = 0; i < 128; i++) {
+                strcpy(cpu->dmem[buffer + i], "00000000");
+            }
+
+            // Then read from disk
+            for (int i = 0; i < 128; i++) {
                 uint32_t word = 0;
-                // Construct 32-bit word from 4 bytes
                 for (int j = 0; j < 4; j++) {
-                    word |= (cpu->disk[sector][i + j] << (j * 8));
+                    uint32_t byte = cpu->disk[sector][i*4 + j];
+                    word |= (byte << (24 - (j*8)));
                 }
-                // Convert word to hex string in memory
-                sprintf(cpu->dmem[buffer + i/4], "%08X", word);
+                sprintf(cpu->dmem[buffer + i], "%08X", word);
             }
         }
-        else if (command == 2) {  // Write operation - memory to disk
-            // Copy 128 words (512 bytes) from memory buffer to disk sector
-            for (int i = 0; i < SECTOR_SIZE; i += 4) {
+        else if (command == 2) {  // Write from memory to disk
+            for (int i = 0; i < 128; i++) {
                 uint32_t word;
-                // Convert hex string from memory to word
-                sscanf(cpu->dmem[buffer + i/4], "%x", &word);
-
-                // Decompose word into 4 bytes
+                sscanf(cpu->dmem[buffer + i], "%x", &word);
                 for (int j = 0; j < 4; j++) {
-                    cpu->disk[sector][i + j] = (word >> (j * 8)) & 0xFF;
+                    cpu->disk[sector][i*4 + j] = (word >> (24 - (j*8))) & 0xFF;
                 }
             }
         }
