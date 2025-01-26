@@ -5,8 +5,14 @@
 - Let the assembly code clear irq status using an OUT instruction ?
 
 
-need to fix:
-1. assembler - remove // or /*
+need to do:
+1. assembler - add to remove comments function: remove // or /*
+2. circle
+3. explanation file
+4. run on visual studio ??
+5. change names of files
+
+
 
 
 
