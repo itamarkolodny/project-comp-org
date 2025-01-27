@@ -73,10 +73,16 @@ void start_disk_operation(CPU *cpu);
 
 
 int main(int argc, char *argv[]) {
-    if (argc != 15) {
+    // if (argc != 15) {
+    //     fprintf(stderr, "Usage: %s imemin.txt dmemin.txt diskin.txt irq2in.txt "
+    //             "dmemout.txt regout.txt trace.txt hwregtrace.txt cycles.txt "
+    //             "leds.txt display7seg.txt diskout.txt monitor.txt monitor.yuv\n", argv[0]);
+    //     return 1;
+    // }
+    if (argc != 14 && argc != 15) {
         fprintf(stderr, "Usage: %s imemin.txt dmemin.txt diskin.txt irq2in.txt "
                 "dmemout.txt regout.txt trace.txt hwregtrace.txt cycles.txt "
-                "leds.txt display7seg.txt diskout.txt monitor.txt monitor.yuv\n", argv[0]);
+                "leds.txt display7seg.txt diskout.txt monitor.txt [monitor.yuv]\n", argv[0]);
         return 1;
     }
 
@@ -91,7 +97,7 @@ int main(int argc, char *argv[]) {
     init_cpu(&cpu);
 
     //load input files
-    printf("%s, %s, %s, %s\n", argv[1], argv[2], argv[3], argv[4]);
+    // printf("%s, %s, %s, %s\n", argv[1], argv[2], argv[3], argv[4]);
     if (!load_instruction_memory(&cpu, argv[1]) ||
         !load_data_memory(&cpu, argv[2]) ||
         !load_disk(&cpu, argv[3]) ||
@@ -148,6 +154,7 @@ int main(int argc, char *argv[]) {
     // Write output files
 
     //write dmemout.txt
+
     FILE* dmem_fp = fopen(argv[5], "w");
     for(int i = 0; i < DMEM_SIZE; i++) {
         int value;
@@ -156,6 +163,7 @@ int main(int argc, char *argv[]) {
     }
     fclose(dmem_fp);
 
+
     //write regout.txt
     FILE* regout_fp = fopen(argv[6], "w");
     for(int i = 3; i < NUM_REGISTERS; i++) {
@@ -163,10 +171,22 @@ int main(int argc, char *argv[]) {
     }
     fclose(regout_fp);
 
-     //write cycles.txt
+
+
+    //write cycles.txt
     FILE* cycles_fp = fopen(argv[9], "w");
     fprintf(cycles_fp, "%d\n", cycle_count);
     fclose(cycles_fp);
+
+    FILE *cycles_fp = fopen(argv[9], "w");
+    if (!cycles_fp) {
+        fprintf(stderr, "Error: Could not open %s for writing\n", argv[9]);
+        return 1;
+    }
+    fprintf(cycles_fp, "%d\n", cycle_count);
+    fclose(cycles_fp);
+    printf("Total cycles executed: %u\n", cycle_count); // Debug print
+
 
     // diskout output
     if (!save_disk(&cpu, argv[12])) {
@@ -184,16 +204,17 @@ int main(int argc, char *argv[]) {
         }
         fclose(txt);
     }
-
-    // Write monitor.yuv
-    FILE *yuv = fopen(argv[14], "wb");
-    if (yuv) {
-        for (int y = 0; y < 256; y++) {
-            for (int x = 0; x < 256; x++) {
-                fwrite(&cpu.monitor[y][x], sizeof(uint8_t), 1, yuv);
+    if (argc == 15) { //added to check w/o using .yuv
+        // Write monitor.yuv
+        FILE *yuv = fopen(argv[14], "wb");
+        if (yuv) {
+            for (int y = 0; y < 256; y++) {
+                for (int x = 0; x < 256; x++) {
+                    fwrite(&cpu.monitor[y][x], sizeof(uint8_t), 1, yuv);
+                }
             }
+            fclose(yuv);
         }
-        fclose(yuv);
     }
     free(cpu.irq2_cycles);
     return 0;

@@ -1,59 +1,51 @@
-# Initialize
-add $sp, $zero, $imm1, $zero, 0x100, 0     # Set stack pointer to 0x100
+    .word 0x100 10                               # radius = 10
 
-# Load radius from memory
-lw $a0, $zero, $imm1, $zero, 0x100, 0      # Load radius from memory address 0x100
+    lw $t2, $zero, $imm1, $zero, 0x100, 0         # load radius value
+    beq $zero, $t2, $zero, $imm2, 0, END_PROG     # exit if no radius specified
+    mac $t2, $t2, $t2, $zero, 0, 0                # square the radius
 
-# Set up screen center coordinates (128,128)
-add $s0, $zero, $imm1, $zero, 128, 0       # Center x = 128
-add $s1, $zero, $imm1, $zero, 128, 0       # Center y = 128
-add $s2, $zero, $imm1, $zero, 255, 0       # White color value
 
-# Loop through y coordinates
-add $t0, $zero, $imm1, $zero, 0, 0         # y = -radius
-sub $t0, $zero, $a0, $zero, 0, 0
+    add $t0, $zero, $zero, $zero, 0, 0            # start row counter
 
-yloop:
-    # Loop through x coordinates
-    add $t1, $zero, $imm1, $zero, 0, 0     # x = -radius
-    sub $t1, $zero, $a0, $zero, 0, 0
+    add $t1, $zero, $zero, $zero, 0, 0            # init column value
 
-xloop:
-    # Calculate (x^2 + y^2)
-    # Store x^2 in $t2
-    mac $t2, $t1, $t1, $zero, 0, 0         # x^2
-    # Add y^2 to get x^2 + y^2
-    mac $v0, $t0, $t0, $t2, 0, 0           # x^2 + y^2
+PROCESS_SCREEN:
+    blt $zero, $t0, $imm1, $imm2, 256, PIXEL_LOOP # check row bounds
 
-    # Calculate r^2
-    mac $t2, $a0, $a0, $zero, 0, 0         # r^2
+    beq $zero, $zero, $zero, $imm2, 0, END_PROG   # screen completed
 
-    # If (x^2 + y^2) <= r^2, plot the point
-    bgt $zero, $v0, $t2, $imm1, skip_pixel, 0
 
-    # Calculate actual screen coordinates
-    add $a1, $t1, $s0, $zero, 0, 0         # screen_x = x + center_x
-    add $a2, $t0, $s1, $zero, 0, 0         # screen_y = y + center_y
+PIXEL_LOOP:
+    blt $zero, $t1, $imm1, $imm2, 256, DISTANCE_CALC # check column bounds
+    add $t0, $t0, $imm1, $zero, 1, 0              # next row
+    add $t1, $zero, $zero, $zero, 0, 0            # reset column
+    beq $zero, $zero, $zero, $imm2, 0, PROCESS_SCREEN # return to row check
 
-    # Calculate pixel address (y * 256 + x)
-    mac $t2, $a2, $imm1, $zero, 256, 0     # y * 256
-    add $t2, $t2, $a1, $zero, 0, 0         # y * 256 + x
+DISTANCE_CALC:
+    sub $a1, $t0, $imm1, $zero, 127, 0            # center offset for row
+    sub $a2, $t1, $imm1, $zero, 127, 0            # center offset for column
+    add $s0, $zero, $zero, $zero, 0, 0            # clear distance register
+    mac $a1, $a1, $a1, $zero, 0, 0                # row offset squared
+    mac $s0, $a2, $a2, $a1, 0, 0                  # total distance squared
 
-    # Write pixel address to monitoraddr
-    out $zero, $zero, $zero, $t2, 20, 0    # Set monitor address
-    # Write white color to monitordata
-    out $zero, $zero, $zero, $s2, 21, 0    # Set pixel color (255 = white)
-    # Write command to draw pixel
-    out $zero, $zero, $zero, $imm1, 22, 1  # Write pixel command
+    jal $ra, $zero, $zero, $imm2, 0, DRAW_POINT   # handle pixel drawing
+    add $t1, $t1, $imm1, $zero, 1, 0              # move to next column
+    beq $zero, $zero, $zero, $imm2, 0, PIXEL_LOOP # continue pixel processing
 
-skip_pixel:
-    # Increment x
-    add $t1, $t1, $imm1, $zero, 1, 0
-    ble $zero, $t1, $a0, $imm1, xloop, 0   # Continue if x <= radius
+DRAW_POINT:
+    ble $zero, $s0, $t2, $imm2, 0, WHITE_PIXEL    # check if inside circle
+    add $s2, $zero, $zero, $zero, 0, 0            # set black color
+    beq $zero, $zero, $zero, $imm2, 0, OUTPUT_PIXEL # proceed to drawing
 
-    # Increment y
-    add $t0, $t0, $imm1, $zero, 1, 0
-    ble $zero, $t0, $a0, $imm1, yloop, 0   # Continue if y <= radius
+WHITE_PIXEL:
+    add $s2, $imm1, $zero, $zero, 255, 0          # set white color
 
-# Halt execution
-halt $zero, $zero, $zero, $zero, 0, 0
+OUTPUT_PIXEL:
+    mac $s1, $t0, $imm1, $t1, 256, 0             # compute pixel address
+    out $zero, $imm1, $zero, $s1, 20, 0          # set pixel location
+    out $zero, $imm1, $zero, $s2, 21, 0          # assign pixel color
+    out $zero, $imm1, $zero, $imm2, 22, 1        # draw the pixel
+    beq $zero, $zero, $zero, $ra, 0, 0           # return to main loop
+
+END_PROG:
+    halt $zero, $zero, $zero, $zero, 0, 0         # terminate program

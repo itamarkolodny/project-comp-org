@@ -160,6 +160,11 @@ void remove_comments(char* line) {
     if (comment) {
         *comment = '\0';
     }
+    char* double_slash = strstr(line, "//");
+    if (double_slash) {
+        *double_slash = '\0';
+    }
+
 }
 
 void remove_whitespace(char* str) {
