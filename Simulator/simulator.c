@@ -175,17 +175,15 @@ int main(int argc, char *argv[]) {
 
     //write cycles.txt
     FILE* cycles_fp = fopen(argv[9], "w");
-    fprintf(cycles_fp, "%d\n", cycle_count);
-    fclose(cycles_fp);
 
-    FILE *cycles_fp = fopen(argv[9], "w");
+
     if (!cycles_fp) {
         fprintf(stderr, "Error: Could not open %s for writing\n", argv[9]);
         return 1;
     }
     fprintf(cycles_fp, "%d\n", cycle_count);
     fclose(cycles_fp);
-    printf("Total cycles executed: %u\n", cycle_count); // Debug print
+    //printf("Total cycles executed: %u\n", cycle_count); // Debug print DELETE
 
 
     // diskout output
@@ -209,9 +207,10 @@ int main(int argc, char *argv[]) {
         FILE *yuv = fopen(argv[14], "wb");
         if (yuv) {
             for (int y = 0; y < 256; y++) {
-                for (int x = 0; x < 256; x++) {
-                    fwrite(&cpu.monitor[y][x], sizeof(uint8_t), 1, yuv);
-                }
+                //for (int x = 0; x < 256; x++) {
+                   // fwrite(&cpu.monitor[y][x], sizeof(uint8_t), 1, yuv);
+                //}
+                fwrite(&cpu.monitor[y], 1,sizeof(uint8_t), yuv);
             }
             fclose(yuv);
         }
