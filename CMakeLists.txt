@@ -4,7 +4,7 @@ project(project_comp_org)
 set(CMAKE_CXX_STANDARD 14)
 
 add_executable(project_comp_org
-    Asembler/asembler.c
+        Asm/asm.c
     test_programs/binom/binom.asm
     test_programs/binom/cycles.txt
     test_programs/binom/diskin.txt
@@ -65,4 +65,4 @@ add_executable(project_comp_org
     test_programs/mulmat/mulmat.asm
     test_programs/mulmat/regout.txt
     test_programs/mulmat/trace.txt
-        Simulator/simulator.c)
+        Sim/sim.c)

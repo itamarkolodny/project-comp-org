@@ -12,7 +12,7 @@
 PROCESS_SCREEN:
     blt $zero, $t0, $imm1, $imm2, 256, PIXEL_LOOP # check row bounds
 
-    beq $zero, $zero, $zero, $imm2, 0, END_PROG   # screen completed
+    beq $zero, $zero, $zero, $imm2, 0, END_PROG   //screen completed
 
 
 PIXEL_LOOP:
