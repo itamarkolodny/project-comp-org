@@ -1,0 +1,62 @@
+name: Build itinerary DOCX
+
+on:
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-docx:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: generate-itinerary-docx
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install dependencies
+        run: pip install python-docx
+      - name: Generate DOCX
+        run: python tools/generate_itinerary_docx.py
+      - name: Add Schwerin route and Lübeck-Hamburg train plan
+        run: python tools/patch_route_and_train.py
+      - name: Validate DOCX archive
+        run: |
+          python - <<'PY'
+          import zipfile
+          from pathlib import Path
+          p = Path('output/family_trip_berlin_eberswalde_luebeck_hamburg_links.docx')
+          assert p.exists() and p.stat().st_size > 10000
+          with zipfile.ZipFile(p) as z:
+              names = set(z.namelist())
+              assert '[Content_Types].xml' in names
+              assert 'word/document.xml' in names
+              assert 'word/_rels/document.xml.rels' in names
+              xml = z.read('word/document.xml').decode('utf-8')
+              assert 'שוורין' in xml
+              assert 'RE8' in xml
+          print(f'Validated {p} ({p.stat().st_size} bytes)')
+          PY
+      - name: Publish DOCX to branch
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add output/family_trip_berlin_eberswalde_luebeck_hamburg_links.docx
+          if git diff --cached --quiet; then
+            echo "No changes to publish"
+          else
+            git commit -m "Update itinerary with Schwerin stop and train transfer"
+            git push origin HEAD:generate-itinerary-docx
+          fi
+      - name: Upload DOCX
+        uses: actions/upload-artifact@v4
+        with:
+          name: family-trip-itinerary-docx
+          path: output/family_trip_berlin_eberswalde_luebeck_hamburg_links.docx
+          if-no-files-found: error
