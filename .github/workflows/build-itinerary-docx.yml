@@ -5,12 +5,17 @@ on:
     branches: [ main ]
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   build-docx:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          ref: generate-itinerary-docx
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
@@ -33,6 +38,17 @@ jobs:
               assert 'word/_rels/document.xml.rels' in names
           print(f'Validated {p} ({p.stat().st_size} bytes)')
           PY
+      - name: Publish DOCX to branch
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add output/family_trip_berlin_eberswalde_luebeck_hamburg_links.docx
+          if git diff --cached --quiet; then
+            echo "No changes to publish"
+          else
+            git commit -m "Add generated itinerary DOCX"
+            git push origin HEAD:generate-itinerary-docx
+          fi
       - name: Upload DOCX
         uses: actions/upload-artifact@v4
         with:
