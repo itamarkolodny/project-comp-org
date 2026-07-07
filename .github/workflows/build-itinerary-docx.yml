@@ -24,6 +24,8 @@ jobs:
         run: pip install python-docx
       - name: Generate DOCX
         run: python tools/generate_itinerary_docx.py
+      - name: Add Schwerin route and Lübeck-Hamburg train plan
+        run: python tools/patch_route_and_train.py
       - name: Validate DOCX archive
         run: |
           python - <<'PY'
@@ -36,6 +38,9 @@ jobs:
               assert '[Content_Types].xml' in names
               assert 'word/document.xml' in names
               assert 'word/_rels/document.xml.rels' in names
+              xml = z.read('word/document.xml').decode('utf-8')
+              assert 'שוורין' in xml
+              assert 'RE8' in xml
           print(f'Validated {p} ({p.stat().st_size} bytes)')
           PY
       - name: Publish DOCX to branch
@@ -46,7 +51,7 @@ jobs:
           if git diff --cached --quiet; then
             echo "No changes to publish"
           else
-            git commit -m "Add generated itinerary DOCX"
+            git commit -m "Update itinerary with Schwerin stop and train transfer"
             git push origin HEAD:generate-itinerary-docx
           fi
       - name: Upload DOCX
